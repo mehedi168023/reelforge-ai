@@ -1,5 +1,6 @@
-import { ALL_FORMATS, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, Output, QUALITY_HIGH, canEncodeAudio, canEncodeVideo } from 'mediabunny';
+import { ALL_FORMATS, AudioBufferSource, BlobSource, UrlSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, Output, QUALITY_HIGH, canEncodeAudio, canEncodeVideo } from 'mediabunny';
 import { fileGet, fileList } from './db';
+import { desktop } from './desktop';
 
 const runtimeUrl = (path: string) => new URL(`runtime/${path}`, document.baseURI).href;
 
@@ -11,6 +12,17 @@ export async function readFile(projectId: string, path: string): Promise<Blob | 
   const res = await fetch(runtimeUrl(path.slice('assets/'.length)));
   const isPage = res.headers.get('content-type')?.includes('text/html');
   return res.ok && !isPage ? res.blob() : undefined;
+}
+
+/** Footage or sound to decode: a Blob, or on the desktop a file read from disk in ranges as it's needed. */
+export type Media = Blob | { url: string };
+
+const sourceOf = (m: Media) => (m instanceof Blob ? new BlobSource(m) : new UrlSource(m.url));
+
+/** Like readFile, but a project's own clip on the desktop is streamed from disk instead of loaded whole. */
+export async function readMedia(projectId: string, path: string): Promise<Media | undefined> {
+  if (desktop && !path.startsWith('assets/')) return (await desktop.exists(projectId, path)) ? { url: desktop.fileUrl(projectId, path) } : undefined;
+  return readFile(projectId, path);
 }
 
 export const SHARED_ASSETS = ['gsap.min.js', 'kit.js', 'reels.js','fonts/anek-bangla.woff2', 'fonts/hind-siliguri-600.woff2', ...['whoosh', 'whoosh-low', 'pop', 'pop-high', 'click', 'typing', 'coin', 'coin-high', 'impact-bass-1', 'impact-light', 'sparkle', 'ping', 'chime', 'notification', 'error', 'sonar', 'cheer', 'glitch-1', 'riser'].map((n) => `sfx/${n}.mp3`)].map((p) => `assets/${p}`);
@@ -187,7 +199,7 @@ export async function loadConfig(projectId: string): Promise<ProjectConfig> {
   const audio: AudioClip[] = (Array.isArray(o.audio) ? o.audio : []).map((a: Record<string, unknown>) => ({ file: String(a.file), start: Number(a.start ?? 0), volume: Number(a.volume ?? 1), trimStart: Number(a.trimStart ?? 0) }));
   const footage: string | null = o.footage ? String(o.footage) : null;
   for (const name of [...audio.map((a) => a.file), ...(footage ? [footage] : [])]) {
-    if (!(await readFile(projectId, name))) throw new Error(`${name} doesn't exist.`);
+    if (!(await readMedia(projectId, name))) throw new Error(`${name} doesn't exist.`);
   }
   return { width, height, fps, duration, footage, audio, grade: parseGrade(o.grade), ...parseCamera(o.camera) };
 }
@@ -373,8 +385,8 @@ class FrameSource {
 }
 
 // ---------- footage ----------
-async function openFootage(blob: Blob, width: number, height: number) {
-  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+async function openFootage(blob: Media, width: number, height: number) {
+  const input = new Input({ source: sourceOf(blob), formats: ALL_FORMATS });
   const track = await input.getPrimaryVideoTrack();
   if (!track) throw new Error('The footage has no video track.');
   if (!(await track.canDecode())) throw new Error("This browser can't decode this video's format.");
@@ -390,9 +402,9 @@ export interface MediaInfo {
   hasAudio: boolean;
 }
 
-export async function mediaInfo(blob: Blob): Promise<MediaInfo> {
+export async function mediaInfo(blob: Media): Promise<MediaInfo> {
   let info: MediaInfo;
-  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+  const input = new Input({ source: sourceOf(blob), formats: ALL_FORMATS });
   try {
     const [video, audio, durationSec] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack(), input.computeDuration()]);
     info = { durationSec, width: video?.displayWidth ?? null, height: video?.displayHeight ?? null, hasVideo: Boolean(video), hasAudio: Boolean(audio) };
@@ -405,8 +417,8 @@ export async function mediaInfo(blob: Blob): Promise<MediaInfo> {
 }
 
 /** JPEG frames from a video file at the given times. */
-export async function videoFrames(blob: Blob, times: number[]): Promise<Blob[]> {
-  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+export async function videoFrames(blob: Media, times: number[]): Promise<Blob[]> {
+  const input = new Input({ source: sourceOf(blob), formats: ALL_FORMATS });
   try {
     const track = await input.getPrimaryVideoTrack();
     if (!track) throw new Error('This file has no video.');
@@ -458,7 +470,7 @@ export async function snapshots(projectId: string, times: number[]): Promise<Blo
     const canvas = Object.assign(document.createElement('canvas'), { width, height });
     const ctx = canvas.getContext('2d')!;
     const z = maxZoom(config);
-    const opened = config.footage ? await openFootage((await readFile(projectId, config.footage))!, Math.round(width * z), Math.round(height * z)) : null;
+    const opened = config.footage ? await openFootage((await readMedia(projectId, config.footage))!, Math.round(width * z), Math.round(height * z)) : null;
     footageInput = opened?.input;
     const footage = opened?.sink;
     const out: Blob[] = [];
@@ -487,7 +499,18 @@ async function mixAudio(projectId: string, config: ProjectConfig): Promise<Audio
   const ctx = new OfflineAudioContext(2, Math.ceil(config.duration * RATE), RATE);
   let any = false;
   for (const clip of clips) {
-    const blob = (await readFile(projectId, clip.file))!;
+    // On the desktop, FFmpeg pulls a video's sound out once, so a long clip is never decoded whole in memory.
+    let soundPath = clip.file;
+    if (desktop && /\.(mp4|m4v|mov|webm|mkv)$/i.test(clip.file) && !clip.file.startsWith('assets/')) {
+      try {
+        const extracted = await desktop.audioOf(projectId, clip.file);
+        if (!extracted) continue; // footage with no sound
+        soundPath = extracted;
+      } catch {
+        // fall back to decoding the file itself
+      }
+    }
+    const blob = (await readFile(projectId, soundPath))!;
     let buffer: AudioBuffer;
     try {
       buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
@@ -565,7 +588,7 @@ export async function renderVideo(projectId: string, shortSide: number, signal: 
     const timestamps = Array.from({ length: total }, (_, i) => i / config.fps);
     const z = maxZoom(config);
     // Decoded larger when the camera zooms in, so a punch-in stays sharp. Kept even for the decoder.
-    const opened = config.footage ? await openFootage((await readFile(projectId, config.footage))!, Math.round((width * z) / 2) * 2, Math.round((height * z) / 2) * 2) : null;
+    const opened = config.footage ? await openFootage((await readMedia(projectId, config.footage))!, Math.round((width * z) / 2) * 2, Math.round((height * z) / 2) * 2) : null;
     footageInput = opened?.input;
     footage = opened?.sink.canvasesAtTimestamps(timestamps)[Symbol.asyncIterator]();
     let lastPaint = 0;

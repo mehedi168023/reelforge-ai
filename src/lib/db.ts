@@ -1,4 +1,7 @@
-// Everything is kept in this browser's IndexedDB: settings, conversations and video files.
+// Settings and conversations are kept in IndexedDB. Video files are too in a browser; the desktop app keeps
+// them as real files on disk (Videos\ReelForge\<project>), so big footage and renders never sit in memory.
+import { desktop } from './desktop';
+
 const DB_NAME = 'reelforge';
 let opened: Promise<IDBDatabase> | null = null;
 
@@ -35,15 +38,29 @@ const rangeFor = (prefix: string) => IDBKeyRange.bound(prefix, `${prefix}￿`);
 
 export const kvValues = <T>(prefix: string) => run<T[]>('kv', 'readonly', (s) => s.getAll(rangeFor(prefix)));
 
-export const filePut = (projectId: string, path: string, blob: Blob) => run('files', 'readwrite', (s) => s.put(blob, `${projectId}/${path}`));
-export const fileGet = (projectId: string, path: string) => run<Blob | undefined>('files', 'readonly', (s) => s.get(`${projectId}/${path}`));
+const idbPut = (projectId: string, path: string, blob: Blob) => run('files', 'readwrite', (s) => s.put(blob, `${projectId}/${path}`));
+const idbGet = (projectId: string, path: string) => run<Blob | undefined>('files', 'readonly', (s) => s.get(`${projectId}/${path}`));
+
+export async function filePut(projectId: string, path: string, blob: Blob): Promise<void> {
+  if (desktop) return desktop.put(projectId, path, new Uint8Array(await blob.arrayBuffer()));
+  await idbPut(projectId, path, blob);
+}
+
+export async function fileGet(projectId: string, path: string): Promise<Blob | undefined> {
+  if (!desktop) return idbGet(projectId, path);
+  if (!(await desktop.exists(projectId, path))) return undefined;
+  const res = await fetch(desktop.fileUrl(projectId, path));
+  return res.ok ? res.blob() : undefined;
+}
 
 export async function fileList(projectId: string): Promise<string[]> {
+  if (desktop) return desktop.list(projectId);
   const prefix = `${projectId}/`;
   const keys = await run<IDBValidKey[]>('files', 'readonly', (s) => s.getAllKeys(rangeFor(prefix)));
   return keys.map((k) => String(k).slice(prefix.length)).sort();
 }
 
 export async function fileDeleteAll(projectId: string): Promise<void> {
+  if (desktop) return desktop.deleteAll(projectId);
   await run('files', 'readwrite', (s) => s.delete(rangeFor(`${projectId}/`)));
 }

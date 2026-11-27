@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { AgentController, CONTENT_TYPES, STYLES } from '../lib/agent';
-import { activeVoiceName, createProject, settings, voiceReady, type ProjectMeta } from '../lib/store';
+import { activeVoiceName, createProject, engineReady, settings, voiceReady, type ProjectMeta } from '../lib/store';
+import { desktop, ENGINE_LABEL } from '../lib/desktop';
 import { BackLink, FileThumb, sizeLabel } from '../ui';
 
 const SHAPES = [
@@ -51,6 +52,7 @@ export function NewVideoScreen({ onCreated }: { onCreated: (meta: ProjectMeta) =
   const [autopilot, setAutopilot] = useState(false);
   const [voiceover, setVoiceover] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [busyNote, setBusyNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -71,19 +73,20 @@ export function NewVideoScreen({ onCreated }: { onCreated: (meta: ProjectMeta) =
   };
 
   const start = async () => {
-    if (!settings.anthropicKey) return setError('Add your API key in Settings first.');
+    if (!engineReady()) return setError(settings.engine === 'api' ? 'Add your API key in Settings first, or pick an AI on this PC.' : 'Pick an AI in Settings first.');
     if (!brief.trim() && !files.length) return setError('Describe the video, or add a file.');
     setBusy(true);
     setError(null);
     try {
       // Asks the browser not to clear these files when disk space runs low.
-      await navigator.storage?.persist?.();
-      const meta = await createProject({ name: name.trim() || brief.trim().split('\n')[0], type, style, aspect, language, autopilot, voiceover }, files);
+      if (!desktop) await navigator.storage?.persist?.();
+      const meta = await createProject({ name: name.trim() || brief.trim().split('\n')[0], type, style, aspect, language, autopilot, voiceover }, files, setBusyNote);
       const c = await AgentController.of(meta);
       void c.send(brief.trim() || 'Start this video.', c.firstPrompt(brief));
       onCreated(meta);
     } catch (err) {
       setBusy(false);
+      setBusyNote(null);
       setError(err instanceof Error ? err.message : String(err));
     }
   };
@@ -152,7 +155,7 @@ export function NewVideoScreen({ onCreated }: { onCreated: (meta: ProjectMeta) =
       <div className="page-footer">
         {error && <p className="msg bad" role="alert">{error}</p>}
         <button className="btn primary wide" disabled={busy} onClick={start}>
-          {busy ? 'Preparing...' : 'Start'}
+          {busy ? busyNote ?? 'Preparing...' : desktop ? `Start with ${ENGINE_LABEL[settings.engine] ?? 'AI'}` : 'Start'}
         </button>
       </div>
     </div>

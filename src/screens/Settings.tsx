@@ -5,6 +5,80 @@ import { checkVoice } from '../lib/eleven';
 import { checkVoice as checkCartesiaVoice } from '../lib/cartesia';
 import { addSkill, listSkills, removeSkill, saveSettings, settings, type MySkill, type Settings as S } from '../lib/store';
 import { BackLink, Logo, Section } from '../ui';
+import { desktop, detectEngines, ENGINE_LABEL, ENGINE_MODELS, type EngineInfo } from '../lib/desktop';
+
+/** Picks which AI makes the videos: the Anthropic API, or an AI CLI found on this PC. */
+export function EnginePicker({ onPicked }: { onPicked?: (id: string) => void }) {
+  const [engines, setEngines] = useState<EngineInfo[] | null>(null);
+  const [picked, setPicked] = useState(settings.engine);
+  const [model, setModel] = useState(settings.engineModels[settings.engine] ?? '');
+  const [scanning, setScanning] = useState(false);
+
+  const scan = async (fresh: boolean) => {
+    setScanning(true);
+    setEngines(await detectEngines(fresh));
+    setScanning(false);
+  };
+  useEffect(() => {
+    void scan(false);
+  }, []);
+
+  const choose = async (id: string) => {
+    settings.engine = id;
+    await saveSettings();
+    setPicked(id);
+    setModel(settings.engineModels[id] ?? '');
+    onPicked?.(id);
+  };
+
+  const saveModel = async (value: string) => {
+    setModel(value);
+    settings.engineModels = { ...settings.engineModels, [picked]: value.trim() };
+    await saveSettings();
+  };
+
+  const rows: { id: string; name: string; sub: string; ok: boolean }[] = [
+    { id: 'api', name: ENGINE_LABEL.api, sub: settings.anthropicKey ? 'Pays per use from your Anthropic account. Built in, works without any CLI.' : 'Needs an Anthropic API key (below).', ok: true },
+    ...(engines ?? []).map((e) => ({
+      id: e.id,
+      name: e.name,
+      sub: e.installed ? `Installed${e.version ? `: ${e.version}` : ''}. Uses your ${e.name} sign-in or plan.` : `Not found. ${e.install}.`,
+      ok: e.installed,
+    })),
+  ];
+
+  return (
+    <div className="engine-picker">
+      <div className="engine-list" role="radiogroup" aria-label="AI engine">
+        {rows.map((r) => (
+          <button key={r.id} type="button" role="radio" aria-checked={picked === r.id} disabled={!r.ok} className={`engine-card ${picked === r.id ? 'on' : ''} ${r.ok ? '' : 'missing'}`} onClick={() => choose(r.id)}>
+            <span className={`engine-dot ${r.ok ? 'ok' : ''}`} aria-hidden="true" />
+            <span className="engine-text">
+              <strong>{r.name}</strong>
+              <span className="hint">{r.sub}</span>
+            </span>
+          </button>
+        ))}
+        {engines === null && <p className="hint">Looking for AI tools on this PC...</p>}
+      </div>
+      {picked !== 'api' && (
+        <label>
+          Model
+          <input list={`models-${picked}`} placeholder={`${ENGINE_LABEL[picked]} default`} value={model} onChange={(e) => saveModel(e.target.value)} spellCheck={false} />
+          <datalist id={`models-${picked}`}>
+            {(ENGINE_MODELS[picked] ?? []).map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+          <span className="hint">Leave empty to use the CLI's own default model. It must be able to see images, because the agent checks frames.</span>
+        </label>
+      )}
+      <button type="button" className="btn text" disabled={scanning} onClick={() => scan(true)}>
+        {scanning ? 'Scanning...' : 'Scan this PC again'}
+      </button>
+    </div>
+  );
+}
 
 const saveKey = (name: 'anthropicKey' | 'elevenKey', value: string) => {
   settings[name] = value;
@@ -15,6 +89,7 @@ const secretProps = { type: 'password', autoComplete: 'off', spellCheck: false, 
 
 export function SetupScreen({ onDone }: { onDone: () => void }) {
   const [key, setKey] = useState('');
+  const [engine, setEngine] = useState(settings.engine);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -31,6 +106,8 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
       return;
     }
     await saveKey('anthropicKey', value);
+    settings.engine = 'api';
+    await saveSettings();
     onDone();
   };
 
@@ -41,9 +118,17 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
           <Logo size={44} />
           <span>ReelForge</span>
         </div>
-        <p className="lead">Describe a video and get a finished MP4, made right here in your browser.</p>
+        <p className="lead">Describe a video and get a finished MP4, made right here {desktop ? 'on your PC' : 'in your browser'}.</p>
+        {desktop && (
+          <Section title="Pick your AI" hint="Use an AI you already have on this PC (no API key needed), or add an Anthropic API key below.">
+            <EnginePicker onPicked={setEngine} />
+            <button className="btn primary" disabled={engine === 'api'} onClick={onDone}>
+              {engine === 'api' ? 'Add your API key below, or pick an AI' : 'Start with the selected AI'}
+            </button>
+          </Section>
+        )}
         <form onSubmit={save}>
-          <Section title="Anthropic API key" hint="From console.anthropic.com. It stays in this browser and goes only to Anthropic, which bills that account for use. Don't save it on a shared computer.">
+          <Section title="Anthropic API key" hint={`From console.anthropic.com. It stays ${desktop ? 'on this PC' : 'in this browser'} and goes only to Anthropic, which bills that account for use. Don't save it on a shared computer.`}>
             <input {...secretProps} aria-label="Anthropic API key" placeholder="sk-ant-..." value={key} onChange={(e) => setKey(e.target.value)} />
             {error && <p className="msg bad" role="alert">{error}</p>}
             <button className="btn primary" disabled={busy || !key.trim()}>
@@ -165,6 +250,12 @@ export function SettingsScreen() {
     <div className="page narrow">
       <BackLink />
       <h1>Settings</h1>
+
+      {desktop && (
+        <Section title="AI engine" hint="Which AI makes your videos. CLIs on this PC use your own sign-in and plan, and get the same video tools through ReelForge.">
+          <EnginePicker />
+        </Section>
+      )}
 
       <Section title="Anthropic API key" hint={settings.anthropicKey ? `Saved, ending ${settings.anthropicKey.slice(-4)}. Paste a new one to replace it.` : undefined}>
         <input {...secretProps} aria-label="New Anthropic API key" placeholder="sk-ant-..." value={anthropic} onChange={(e) => setAnthropic(e.target.value)} />
@@ -308,7 +399,11 @@ export function SettingsScreen() {
         </label>
       </Section>
 
-      <p className="footnote">Powered by Claude Opus 5.5. If that model is busy or declines, Anthropic may answer with a fallback model. Keys and videos stay in this browser, unencrypted, so don't save keys on a shared computer. Clearing this site's data deletes them.</p>
+      {desktop ? (
+        <p className="footnote">Videos are saved in your Videos\ReelForge folder. Keys stay on this PC, unencrypted, so don't save them on a shared computer. The budget limit applies only to the Claude API engine; CLIs use your own plan.</p>
+      ) : (
+        <p className="footnote">Powered by Claude Opus 5.5. If that model is busy or declines, Anthropic may answer with a fallback model. Keys and videos stay in this browser, unencrypted, so don't save keys on a shared computer. Clearing this site's data deletes them.</p>
+      )}
     </div>
   );
 }

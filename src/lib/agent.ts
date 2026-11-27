@@ -2,9 +2,10 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { Stopped, friendlyError, makeClient, streamTurn, type Block, type Msg, type Turn } from './claude';
 import { fileList, filePut } from './db';
 import { synthVoice, transcribeAudio } from './voice';
-import { RenderStopped, SHARED_ASSETS, blobToBase64, imageView, mediaInfo, readFile, renderVideo, snapshots, videoFrames, type RenderProgress } from './render';
+import { RenderStopped, SHARED_ASSETS, blobToBase64, imageView, mediaInfo, readFile, readMedia, renderVideo, snapshots, videoFrames, type RenderProgress } from './render';
 import { activeVoiceName, getSkill, listSkills, saveProject, settings, sttReady, voiceProviderLabel, voiceReady, type ProjectMeta, type Status } from './store';
 import { kvGet, kvSet } from './db';
+import { desktop, ENGINE_LABEL, type AgentEvent, type McpContent } from './desktop';
 
 export const CONTENT_TYPES: Record<string, { title: string; blurb: string; brief: string }> = {
   edit: { title: 'Edit my video', blurb: 'Footage in, polished video out.', brief: 'Edit this video. This is an [Intro Video For How To Edit Video with Claude Opus 5.5] where I have discussed [the exact steps to edit videos]. Add some motion graphics, strong icon animations, proper text, and relevant sound effects. Before editing, go through the entire video, understand the content, and tell me what can be improved.' },
@@ -44,6 +45,38 @@ const TOOLS = [
 ];
 
 const SCHEMAS = new Map(TOOLS.map((t) => [t.name, t.input_schema]));
+
+/** The same tools, offered to AI CLIs over MCP by the desktop app. */
+const MCP_TOOLS = TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.input_schema }));
+
+/** Turns a tool result into MCP content: text stays text, frames become images. */
+function toMcp(block: Block): { content: McpContent[]; isError?: boolean } {
+  const parts: McpContent[] = [];
+  const add = (c: unknown) => {
+    if (typeof c === 'string') parts.push({ type: 'text', text: c });
+    else if (Array.isArray(c)) c.forEach(add);
+    else if (c && typeof c === 'object') {
+      const b = c as Block;
+      if (b.type === 'text') parts.push({ type: 'text', text: String(b.text ?? '') });
+      else if (b.type === 'image') parts.push({ type: 'image', data: b.source?.data, mimeType: b.source?.media_type ?? 'image/jpeg' });
+      else parts.push({ type: 'text', text: JSON.stringify(b) });
+    }
+  };
+  add(block.content);
+  if (!parts.length) parts.push({ type: 'text', text: 'Done.' });
+  return { content: parts, isError: Boolean(block.is_error) };
+}
+
+/** What an AI CLI needs to know on top of the system prompt. */
+const cliNote = (engine: string) => `
+
+# Running in ReelForge Desktop through ${ENGINE_LABEL[engine] ?? engine}
+- Your working folder is this project's folder: index.html, project.json, words.json, input/ and renders/ live here. Edit them with your own file tools or with the reelforge tools; both write the same files.
+- The video tools are on the MCP server "reelforge": read_skill, list_files, read_file, write_file, edit_file, media_info, video_frames, snapshot, render, generate_voice, transcribe. Your CLI may show them as mcp__reelforge__<name> or reelforge.<name>. Use them; they are how you see and make the video.
+- Look at images with the reelforge read_file tool, footage with video_frames and your composition with snapshot.
+- Shared assets are not files in this folder. Reference them in index.html as assets/<path>, and see them with list_files path "assets".
+- Don't run shell commands, install software, or touch anything outside this folder.
+- When you need the person's answer or go-ahead, end your turn with the question. Their reply arrives as your next message.`;
 
 /** Tool input streams unchecked by the API, so it's checked against the schema here. */
 function schemaProblem(name: string, input: Record<string, unknown>): string | null {
@@ -150,6 +183,7 @@ export class AgentController {
 
   stop() {
     this.abort.abort();
+    if (this.jobId) void desktop?.agentStop(this.jobId);
   }
 
   private safe(path: string): string {
@@ -248,8 +282,27 @@ export class AgentController {
     messages.push({ role: 'user', content: [...first, { type: 'text', text: `\n\n# Your handoff note from earlier in this job\nImages from before this point are gone; look again if you need them.\n\n${note}\n\nContinue from here.` }] });
   }
 
+  /** Recent conversation as plain text, for an AI that joins a project midway. */
+  private recap(): string {
+    return this.events
+      .filter((e) => e.kind === 'user' || e.kind === 'agent')
+      .slice(-24)
+      .map((e) => `${e.kind === 'user' ? 'Person' : 'Agent'}: ${e.text.length > 1500 ? `${e.text.slice(0, 1500)}...` : e.text}`)
+      .join('\n\n');
+  }
+
+  /** The first prompt of the job, kept so another engine can pick the project up later. */
+  private async briefFor(text: string): Promise<{ brief: string; fresh: boolean }> {
+    const key = `brief:${this.meta.id}`;
+    const stored = await kvGet<string>(key);
+    if (stored) return { brief: stored, fresh: false };
+    await kvSet(key, text);
+    return { brief: text, fresh: true };
+  }
+
   async send(display: string, prompt?: string): Promise<void> {
     if (this.working) return;
+    if (settings.engine !== 'api' && desktop) return this.sendCli(display, prompt);
     this.working = true;
     this.abort = new AbortController();
     this.liveText = '';
@@ -264,7 +317,11 @@ export class AgentController {
 
     const key = `messages:${this.meta.id}`;
     const messages: Msg[] = (await kvGet<Msg[]>(key)) ?? [];
-    messages.push({ role: 'user', content: [{ type: 'text', text: prompt ?? display }] });
+    let text = prompt ?? display;
+    const { brief, fresh } = await this.briefFor(text);
+    // A project another engine started: give this one the brief and the story so far.
+    if (!messages.length && !fresh) text = `${brief}\n\n# The conversation so far (with another AI)\n${this.recap()}\n\n# The person's new message\n${text}`;
+    messages.push({ role: 'user', content: [{ type: 'text', text }] });
 
     let finalStatus: Status = 'waiting';
     try {
@@ -362,6 +419,112 @@ export class AgentController {
     this.notify();
   }
 
+  private jobId: string | null = null;
+
+  /** One turn with an AI CLI on this PC. It works in the project folder and calls the tools above over MCP. */
+  private async sendCli(display: string, prompt?: string): Promise<void> {
+    const api = desktop!;
+    const engine = settings.engine;
+    this.working = true;
+    this.abort = new AbortController();
+    this.liveText = '';
+    this.meta.status = 'working';
+    this.add({ kind: 'user', text: display });
+
+    const text = prompt ?? display;
+    const { brief, fresh } = await this.briefFor(text);
+    const sessions = (this.meta.cliSessions ??= {});
+    let finalStatus: Status = 'waiting';
+
+    const turn = async (session: string | null): Promise<{ gotAnything: boolean; failed: boolean }> => {
+      let message = text;
+      let system: string | undefined;
+      if (!session) {
+        system = (await this.system()) + cliNote(engine);
+        if (!fresh) message = `${brief}\n\n# The conversation so far\n${this.recap()}\n\n# The person's new message\n${text}`;
+      }
+      const jobId = crypto.randomUUID();
+      this.jobId = jobId;
+      let gotAnything = false;
+      let failed = false;
+      const off = api.onAgentEvent((e: AgentEvent) => {
+        if (e.jobId !== jobId) return;
+        switch (e.type) {
+          case 'session':
+            sessions[engine] = e.id;
+            break;
+          case 'delta':
+            this.liveText = e.text;
+            this.paintSoon();
+            break;
+          case 'text':
+            gotAnything = true;
+            this.liveText = '';
+            this.add({ kind: 'agent', text: e.text });
+            break;
+          case 'tool':
+            gotAnything = true;
+            this.add({ kind: 'tool', text: e.text, detail: e.detail });
+            break;
+          case 'error':
+            failed = true;
+            if (!this.abort.signal.aborted) this.add({ kind: 'error', text: e.text });
+            break;
+          case 'result':
+            if (!e.ok) failed = true;
+            break;
+        }
+      });
+      try {
+        await api.agentStart({ jobId, projectId: this.meta.id, engine, model: settings.engineModels[engine] ?? '', effort: settings.effort, prompt: message, system, session });
+      } finally {
+        off();
+        this.jobId = null;
+      }
+      return { gotAnything, failed };
+    };
+
+    try {
+      const session = sessions[engine] ?? null;
+      let r = await turn(session);
+      // A conversation the CLI no longer has: start a fresh one that carries the story so far.
+      if (session && r.failed && !r.gotAnything && !this.abort.signal.aborted) {
+        delete sessions[engine];
+        this.add({ kind: 'notice', text: `Starting a new ${ENGINE_LABEL[engine]} conversation for this project.` });
+        r = await turn(null);
+      }
+      if (this.abort.signal.aborted) {
+        this.add({ kind: 'notice', text: 'Stopped.' });
+        finalStatus = 'stopped';
+      } else if (r.failed) finalStatus = 'error';
+    } catch (err) {
+      this.add({ kind: 'error', text: err instanceof Error ? err.message : String(err) });
+      finalStatus = 'error';
+    }
+
+    this.working = false;
+    this.renderInfo = null;
+    this.liveText = '';
+    await this.refreshOutputs();
+    if (finalStatus === 'waiting' && this.outputs.length) finalStatus = 'done';
+    this.meta.status = finalStatus;
+    await this.persist();
+    this.notify();
+  }
+
+  /** A tool call from an AI CLI, through the desktop app's MCP server. */
+  async mcpCall(jobId: string, name: string, args: Record<string, unknown>): Promise<{ content: McpContent[]; isError?: boolean }> {
+    if (!this.working || this.jobId !== jobId) return { content: [{ type: 'text', text: 'This job was stopped in ReelForge.' }], isError: true };
+    try {
+      const block = await this.runTool({ id: 'mcp', name, input: args });
+      await this.refreshOutputs();
+      this.notify();
+      return toMcp(block);
+    } catch (err) {
+      return { content: [{ type: 'text', text: err instanceof Stopped ? 'Stopped by the person.' : err instanceof Error ? err.message : String(err) }], isError: true };
+    }
+  }
+
   private ok = (id: string, content: unknown): Block => ({ type: 'tool_result', tool_use_id: id, content });
   private err = (id: string, message: string): Block => ({ type: 'tool_result', tool_use_id: id, is_error: true, content: message });
 
@@ -434,14 +597,14 @@ export class AgentController {
         case 'media_info': {
           const path = this.safe(a.path);
           log('Measuring', path);
-          const file = await readFile(pid, path);
+          const file = await readMedia(pid, path);
           return file ? this.ok(id, JSON.stringify(await mediaInfo(file))) : this.err(id, 'File not found.');
         }
         case 'video_frames': {
           const path = this.safe(a.path);
           const times: number[] = a.times.slice(0, 12);
           log('Watching the video', `${times.length} frames`);
-          const file = await readFile(pid, path);
+          const file = await readMedia(pid, path);
           if (!file) return this.err(id, 'File not found.');
           return this.ok(id, await this.imageBlocks(times, await videoFrames(file, times)));
         }
@@ -505,4 +668,14 @@ export class AgentController {
       finished();
     }
   }
+}
+
+// The desktop app's MCP server asks the open project to run each tool an AI CLI calls.
+if (desktop) {
+  void desktop.setTools(MCP_TOOLS);
+  desktop.onToolCall(async (c) => {
+    const ctl = AgentController.peek(c.projectId);
+    const result = ctl ? await ctl.mcpCall(c.jobId, c.name, c.args) : { content: [{ type: 'text' as const, text: 'This project is not open in ReelForge.' }], isError: true };
+    desktop!.toolResult(c.callId, result);
+  });
 }

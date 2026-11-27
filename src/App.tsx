@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { AgentController } from './lib/agent';
 import { browserProblem } from './lib/render';
 import { kvGet, kvSet } from './lib/db';
-import { listProjects, loadSettings, saveProject, settings, type ProjectMeta } from './lib/store';
+import { engineReady, listProjects, loadSettings, saveProject, type ProjectMeta } from './lib/store';
+import { desktop, ENGINE_LABEL } from './lib/desktop';
+import { settings } from './lib/store';
 import { Logo, StatusDot, money, statusLabel } from './ui';
 import { CONTENT_TYPES } from './lib/agent';
 import { SetupScreen, SettingsScreen } from './screens/Settings';
@@ -29,7 +31,7 @@ async function recoverInterrupted(projects: ProjectMeta[]) {
     if (p.status !== 'working' || AgentController.peek(p.id)) continue;
     p.status = 'stopped';
     const events = (await kvGet<unknown[]>(`events:${p.id}`)) ?? [];
-    await kvSet(`events:${p.id}`, [...events, { kind: 'notice', text: 'The page closed while this was working. Press Continue to carry on.' }]);
+    await kvSet(`events:${p.id}`, [...events, { kind: 'notice', text: desktop ? 'ReelForge closed while this was working. Press Continue to carry on.' : 'The page closed while this was working. Press Continue to carry on.' }]);
     await saveProject(p);
   }
 }
@@ -50,7 +52,7 @@ export function App() {
       const all = await listProjects();
       await recoverInterrupted(all);
       setProjects(all);
-      setHasKey(Boolean(settings.anthropicKey));
+      setHasKey(engineReady());
       setProblem(await browserProblem());
       setReady(true);
     })();
@@ -120,7 +122,7 @@ export function App() {
                     {statusLabel(status)} · {CONTENT_TYPES[p.type]?.title}
                   </span>
                 </span>
-                <span className="project-cost">{money(p.costUsd)}</span>
+                {(p.costUsd > 0 || settings.engine === 'api') && <span className="project-cost">{money(p.costUsd)}</span>}
               </a>
             );
           })}
@@ -150,7 +152,7 @@ export function App() {
           <div className="welcome">
             <Logo size={56} />
             <h1>{projectId ? "This video isn't here" : 'Describe a video. Get a finished MP4.'}</h1>
-            <p>Edit footage, or make a promo, SaaS explainer or tournament video. It all runs in this browser, using your own API key.</p>
+            <p>{desktop ? `Edit footage, or make a promo, SaaS explainer or tournament video. It all runs on this PC, made by ${ENGINE_LABEL[settings.engine] ?? 'your AI'}.` : 'Edit footage, or make a promo, SaaS explainer or tournament video. It all runs in this browser, using your own API key.'}</p>
             <a className="btn primary" href="#/new">
               New video
             </a>

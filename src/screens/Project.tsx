@@ -4,6 +4,8 @@ import { fileGet } from '../lib/db';
 import type { RenderProgress } from '../lib/render';
 import { addInputFiles, deleteProject, type ProjectMeta } from '../lib/store';
 import { BackLink, FileThumb, Markdown, StatusPill, money, sizeLabel } from '../ui';
+import { desktop, ENGINE_LABEL } from '../lib/desktop';
+import { settings } from '../lib/store';
 
 type Item = { kind: 'event'; event: FeedEvent } | { kind: 'tools'; tools: FeedEvent[] };
 
@@ -54,7 +56,7 @@ function RenderBar({ info }: { info: RenderProgress }) {
     <div className="render-bar">
       <span>{label}</span>
       <progress max={1} value={fraction ?? undefined} aria-label="Render progress" />
-      <span className="hint">Keep this tab open. Closing it stops the render.</span>
+      <span className="hint">{desktop ? 'Keep ReelForge open. Closing it stops the render.' : 'Keep this tab open. Closing it stops the render.'}</span>
     </div>
   );
 }
@@ -69,6 +71,10 @@ function VideoPanel({ projectId, name, outputs }: { projectId: string; name: str
     let revoked = false;
     let made: string | null = null;
     setError(false);
+    if (desktop) {
+      setUrl(`${desktop.fileUrl(projectId, current)}?v=${Date.now()}`);
+      return;
+    }
     fileGet(projectId, current).then((blob) => {
       if (revoked || !blob) return;
       made = URL.createObjectURL(blob);
@@ -93,7 +99,14 @@ function VideoPanel({ projectId, name, outputs }: { projectId: string; name: str
             ))}
           </select>
         )}
-        {url && <a className="btn primary grow" href={url} download={fileName}>Download MP4</a>}
+        {desktop ? (
+          <>
+            <button className="btn primary grow" onClick={() => desktop!.saveAs(projectId, current, fileName)}>Save MP4 as...</button>
+            <button className="btn" title="Show the file in its folder" onClick={() => desktop!.reveal(projectId, current)}>Show in folder</button>
+          </>
+        ) : (
+          url && <a className="btn primary grow" href={url} download={fileName}>Download MP4</a>
+        )}
       </div>
     </div>
   );
@@ -114,6 +127,7 @@ function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => vo
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [importNote, setImportNote] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const feed = useRef<HTMLDivElement>(null);
   const stuck = useRef(true);
@@ -151,7 +165,14 @@ function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => vo
     let display = value;
     let prompt = value;
     if (attached.length) {
-      const names = await addInputFiles(c.meta, attached);
+      let names: string[];
+      try {
+        names = await addInputFiles(c.meta, attached, setImportNote);
+      } catch (err) {
+        setImportNote(err instanceof Error ? err.message : String(err));
+        return;
+      }
+      setImportNote(null);
       const noun = names.length > 1 ? 'files' : 'file';
       display = [value, `📎 ${names.join(', ')}`].filter(Boolean).join('\n');
       prompt = [value, `I added ${names.length} ${noun} to the project: ${names.map((n) => `input/${n}`).join(', ')}. Look at ${names.length > 1 ? 'them' : 'it'} before continuing.`].filter(Boolean).join('\n\n');
@@ -168,7 +189,8 @@ function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => vo
         <h1 title={c.meta.name}>{c.meta.name}</h1>
         <div className="head-status" role="status">
           <StatusPill status={status} />
-          <span className="cost">{money(c.meta.costUsd)}</span>
+          {desktop && settings.engine !== 'api' ? <span className="cost">{ENGINE_LABEL[settings.engine]}</span> : <span className="cost">{money(c.meta.costUsd)}</span>}
+          {desktop && <button className="btn text muted" title="Open this project's folder" onClick={() => desktop!.reveal(c.meta.id)}>Folder</button>}
           {c.working ? (
             <button className="btn text bad" onClick={() => c.stop()}>Stop</button>
           ) : confirming ? (
@@ -210,6 +232,7 @@ function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => vo
             {c.liveText && <Markdown text={c.liveText} />}
             {c.working && !c.liveText && !c.renderInfo && <div className="thinking" aria-label="Working"><i /><i /><i /></div>}
           </div>
+          {importNote && <p className="note import-note" role="status">{importNote}</p>}
           {quick && !c.working && (
             <div className="quick">
               <button className="btn small-btn" onClick={() => send(quick[1])}>{quick[0]}</button>

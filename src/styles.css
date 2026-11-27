@@ -314,3 +314,17 @@ progress::-moz-progress-bar { background: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- desktop: AI engine picker ---------- */
+.engine-picker { display: flex; flex-direction: column; gap: 12px; }
+.engine-list { display: grid; gap: 8px; }
+.engine-card { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); color: var(--text); cursor: pointer; transition: border-color 0.15s var(--ease), background 0.15s var(--ease), box-shadow 0.15s var(--ease); }
+.engine-card strong { font-weight: 800; }
+.engine-card:hover:not(:disabled) { border-color: var(--faint); background: var(--panel2); }
+.engine-card.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-ring); }
+.engine-card.missing { opacity: 0.55; cursor: default; }
+.engine-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.engine-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.engine-dot.ok { background: var(--accent); box-shadow: 0 0 10px var(--accent-ring); }
+.engine-picker .btn.text { align-self: flex-start; }
+.import-note { margin: 0 0 8px; }

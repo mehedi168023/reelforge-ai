@@ -1,4 +1,5 @@
 import { fileDeleteAll, filePut, kvDel, kvGet, kvSet, kvValues } from './db';
+import { desktop } from './desktop';
 
 export interface Settings {
   anthropicKey: string;
@@ -15,6 +16,10 @@ export interface Settings {
   effort: 'medium' | 'high' | 'xhigh' | 'max';
   budgetUsd: number;
   exportShortSide: number;
+  /** Which AI does the work: 'api' (Anthropic key) or an AI CLI on this PC (desktop app only). */
+  engine: string;
+  /** Model per engine; empty uses the CLI's own default. */
+  engineModels: Record<string, string>;
 }
 
 export interface ProjectMeta {
@@ -31,6 +36,8 @@ export interface ProjectMeta {
   updatedAt: number;
   costUsd: number;
   status: Status;
+  /** The AI CLI conversation this project continues, per engine. */
+  cliSessions?: Record<string, string>;
 }
 
 export type Status = 'new' | 'working' | 'waiting' | 'done' | 'error' | 'stopped';
@@ -56,7 +63,12 @@ export const settings: Settings = {
   effort: 'high',
   budgetUsd: 10,
   exportShortSide: 1080,
+  engine: 'api',
+  engineModels: {},
 };
+
+/** Whether the chosen AI can work: the API needs a key, a CLI needs the desktop app. */
+export const engineReady = () => (settings.engine === 'api' ? Boolean(settings.anthropicKey) : Boolean(desktop));
 
 const onCartesia = () => settings.voiceProvider === 'cartesia';
 
@@ -110,16 +122,41 @@ export const listProjects = () => kvValues<ProjectMeta>('project:').then((p) => 
 export const getProject = (id: string) => kvGet<ProjectMeta>(`project:${id}`);
 export const saveProject = (p: ProjectMeta) => kvSet(`project:${p.id}`, { ...p });
 
-export async function createProject(input: Pick<ProjectMeta, 'name' | 'type' | 'style' | 'aspect' | 'language' | 'autopilot' | 'voiceover'>, files: File[]): Promise<ProjectMeta> {
+export type ImportNote = (text: string) => void;
+
+function safeName(file: File, taken: string[], index: number): string {
+  let name = file.name.replace(/[^\p{L}\p{N} ._-]/gu, '_');
+  if (name.startsWith('.')) name = `file${name}`;
+  if (taken.includes(name)) name = `${index}-${name}`;
+  return name;
+}
+
+/** Saves one picked file into input/. On the desktop it is copied from disk, and footage the renderer can't decode becomes H.264. */
+async function saveInput(projectId: string, file: File, name: string, taken: string[], note?: ImportNote): Promise<string> {
+  const src = desktop?.pathForFile(file);
+  if (desktop && src) {
+    const off = desktop.onImportProgress((p) => {
+      if (p.id !== projectId || p.name !== name) return;
+      if (p.stage === 'convert') note?.(`Converting ${name} (${p.reasons?.join(', ')}) ${p.fraction !== null ? `${Math.round(p.fraction * 100)}%` : ''}`);
+      else note?.(`Copying ${name}`);
+    });
+    try {
+      const r = await desktop.importFile(projectId, src, name);
+      // A converted clip is saved as .mp4, which may collide with a name already taken.
+      if (r.name !== name && taken.includes(r.name)) throw new Error(`${r.name} already exists in this project. Rename the file and add it again.`);
+      return r.name;
+    } finally {
+      off();
+    }
+  }
+  await filePut(projectId, `input/${name}`, file);
+  return name;
+}
+
+export async function createProject(input: Pick<ProjectMeta, 'name' | 'type' | 'style' | 'aspect' | 'language' | 'autopilot' | 'voiceover'>, files: File[], note?: ImportNote): Promise<ProjectMeta> {
   const id = `${Date.now()}`;
   const inputs: string[] = [];
-  for (const file of files) {
-    let name = file.name.replace(/[^\p{L}\p{N} ._-]/gu, '_');
-    if (name.startsWith('.')) name = `file${name}`;
-    if (inputs.includes(name)) name = `${inputs.length}-${name}`;
-    await filePut(id, `input/${name}`, file);
-    inputs.push(name);
-  }
+  for (const file of files) inputs.push(await saveInput(id, file, safeName(file, inputs, inputs.length), inputs, note));
   const now = Date.now();
   const meta: ProjectMeta = { ...input, id, name: input.name.trim().slice(0, 60) || 'Untitled', inputs, createdAt: now, updatedAt: now, costUsd: 0, status: 'new' };
   await saveProject(meta);
@@ -127,14 +164,11 @@ export async function createProject(input: Pick<ProjectMeta, 'name' | 'type' | '
 }
 
 /** Add more files to an existing project mid-conversation. Returns the saved names. */
-export async function addInputFiles(meta: ProjectMeta, files: File[]): Promise<string[]> {
+export async function addInputFiles(meta: ProjectMeta, files: File[], note?: ImportNote): Promise<string[]> {
   const added: string[] = [];
   for (const file of files) {
-    let name = file.name.replace(/[^\p{L}\p{N} ._-]/gu, '_');
-    if (name.startsWith('.')) name = `file${name}`;
-    if (meta.inputs.includes(name) || added.includes(name)) name = `${meta.inputs.length + added.length}-${name}`;
-    await filePut(meta.id, `input/${name}`, file);
-    added.push(name);
+    const taken = [...meta.inputs, ...added];
+    added.push(await saveInput(meta.id, file, safeName(file, taken, taken.length), taken, note));
   }
   meta.inputs = [...meta.inputs, ...added];
   await saveProject(meta);
@@ -142,5 +176,5 @@ export async function addInputFiles(meta: ProjectMeta, files: File[]): Promise<s
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  await Promise.all([kvDel(`project:${id}`), kvDel(`events:${id}`), kvDel(`messages:${id}`), fileDeleteAll(id)]);
+  await Promise.all([kvDel(`project:${id}`), kvDel(`events:${id}`), kvDel(`messages:${id}`), kvDel(`brief:${id}`), fileDeleteAll(id)]);
 }
