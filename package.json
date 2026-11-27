@@ -61,7 +61,7 @@
         "portable"
       ],
       "icon": "electron/build/icon.ico",
-      "artifactName": "${productName}-${version}-${arch}-${target}.${ext}"
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
