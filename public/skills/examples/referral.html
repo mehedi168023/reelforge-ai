@@ -1,0 +1,91 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #rf-more { position: absolute; left: 0; right: 0; top: 390px; text-align: center; }
+    #rf-head { position: absolute; left: 130px; top: 96px; }
+    #rf-net { position: absolute; left: 90px; top: 210px; width: 980px; height: 760px; }
+    #rf-right { position: absolute; left: 1060px; top: 250px; width: 740px; text-align: center; }
+    #rf-amt { font-size: 138px; line-height: 1.12; color: var(--gold-2); text-shadow: 0 0 56px rgba(255, 194, 30, 0.6); white-space: nowrap; }
+    #rf-rule { display: inline-block; margin-top: 30px; font-size: 56px; padding: 12px 36px; border-radius: 999px; background: rgba(20, 8, 60, 0.7); border: 2px solid rgba(190, 150, 255, 0.6); color: #e6d9ff; }
+    #rf-plane { position: absolute; left: 0; top: 0; width: 120px; height: 120px; }
+    #rf-wallet { position: absolute; left: 1300px; top: 700px; width: 260px; height: 230px; }
+    .rf-c { position: absolute; left: 0; top: 0; width: 64px; height: 64px; }
+  </style>
+
+  <div id="root" data-composition-id="referral" data-width="1920" data-height="1080">
+    <div class="clip fill" id="rf-clip" data-start="0" data-duration="6.990">
+      <div class="stage" id="rf-stage"><div class="shk" id="rf-shk">
+        <div class="t t-hero" id="rf-more">শুধু <span class="gold">তাই নয়!</span></div>
+
+        <div class="layer" id="rf-main">
+          <div class="t t-lg" id="rf-head">আপনার <span class="gold">বন্ধুদের রেফার</span> করে</div>
+          <svg id="rf-net" viewBox="0 0 980 760" fill="none">
+            <g stroke="#c9a5ff" stroke-width="7" stroke-linecap="round">
+              <path id="rf-l1" d="M490 380 C360 280 280 200 170 150" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+              <path id="rf-l2" d="M490 380 C620 280 700 200 810 150" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+              <path id="rf-l3" d="M490 380 C360 480 280 560 170 610" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+              <path id="rf-l4" d="M490 380 C620 480 700 560 810 610" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+            </g>
+            <g id="rf-f1"><circle cx="170" cy="150" r="92" fill="#3a1f8a" stroke="#c9a5ff" stroke-width="7"/><circle cx="170" cy="122" r="32" fill="#fff"/><path d="M112 216 a58 50 0 0 1 116 0 z" fill="#fff"/></g>
+            <g id="rf-f2"><circle cx="810" cy="150" r="92" fill="#3a1f8a" stroke="#c9a5ff" stroke-width="7"/><circle cx="810" cy="122" r="32" fill="#fff"/><path d="M752 216 a58 50 0 0 1 116 0 z" fill="#fff"/></g>
+            <g id="rf-f3"><circle cx="170" cy="610" r="92" fill="#3a1f8a" stroke="#c9a5ff" stroke-width="7"/><circle cx="170" cy="582" r="32" fill="#fff"/><path d="M112 676 a58 50 0 0 1 116 0 z" fill="#fff"/></g>
+            <g id="rf-f4"><circle cx="810" cy="610" r="92" fill="#3a1f8a" stroke="#c9a5ff" stroke-width="7"/><circle cx="810" cy="582" r="32" fill="#fff"/><path d="M752 676 a58 50 0 0 1 116 0 z" fill="#fff"/></g>
+            <g id="rf-you"><circle cx="490" cy="380" r="134" fill="#8b45ff"/><circle cx="490" cy="380" r="134" stroke="#fff" stroke-width="9"/><circle cx="490" cy="340" r="48" fill="#fff"/><path d="M402 480 a88 72 0 0 1 176 0 z" fill="#fff"/></g>
+          </svg>
+          <div id="rf-right">
+            <div class="t" id="rf-amt"><span id="rf-a1">৳৩০</span> <span id="rf-dash">–</span> <span id="rf-a2">৳১০০</span></div>
+            <div class="t t-lg" id="rf-sub">পর্যন্ত রেফার বোনাস</div>
+            <div class="t t-sm" id="rf-rule">অফারের নিয়ম অনুযায়ী</div>
+          </div>
+          <div id="rf-coins"></div>
+        </div>
+        <div class="layer" id="rf-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("referral");
+    const end = FF.t.dur("referral");
+
+    FF.zoomIn(tl, "#rf-stage", 0);
+    FF.slam(tl, "#rf-more", 0, 1.8);
+    FF.shake(tl, "#rf-shk", 0.1, 16);
+    const main = c("r_friend");
+    tl.to("#rf-more", { y: -320, opacity: 0, filter: "blur(12px)", duration: 0.2, ease: "power3.in" }, main - 0.2);
+
+    FF.blurWords(tl, "#rf-head", main, 0.07);
+    tl.fromTo("#rf-you", { scale: 0, opacity: 0, svgOrigin: "490 380" }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2.4)" }, main + 0.02);
+    FF.ring(tl, "#rf-fx", main + 0.06, { x: 580, y: 590, r: 340, color: "#c9a5ff" });
+
+    // One invite goes out along each line; a friend pops on arrival, a coin rides back to you.
+    const rays = [["#rf-l1", "#rf-f1", 260, 360], ["#rf-l2", "#rf-f2", 900, 360], ["#rf-l3", "#rf-f3", 260, 820], ["#rf-l4", "#rf-f4", 900, 820]];
+    const host = document.getElementById("rf-coins");
+    rays.forEach((r, i) => {
+      const t0 = main + 0.42 + i * 0.3;
+      tl.to(r[0], { strokeDashoffset: 0, duration: 0.3, ease: "power2.out" }, t0);
+      tl.fromTo(r[1], { scale: 0, opacity: 0, svgOrigin: i % 2 ? (i < 2 ? "810 150" : "810 610") : (i < 2 ? "170 150" : "170 610") }, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(2.6)" }, t0 + 0.2);
+      const coin = document.createElement("div");
+      coin.className = "rf-c";
+      coin.innerHTML = FF.coinSvg(64);
+      host.appendChild(coin);
+      tl.fromTo(coin, { x: r[2] - 32, y: r[3] - 32, scale: 0.4, opacity: 0 }, { x: 580 - 32, y: 590 - 32, scale: 1, opacity: 1, duration: 0.46, ease: "power2.inOut" }, t0 + 0.5);
+      tl.to(coin, { opacity: 0, scale: 0.3, duration: 0.08 }, t0 + 0.96);
+      tl.fromTo("#rf-you", { scale: 1 }, { scale: 1.12, duration: 0.08, ease: "power2.out", yoyo: true, repeat: 1, immediateRender: false }, t0 + 0.94);
+    });
+
+    // The range lands number by number.
+    const amt = c("r_amount");
+    FF.slam(tl, "#rf-a1", amt, 1.8);
+    tl.fromTo("#rf-dash", { opacity: 0 }, { opacity: 1, duration: 0.1 }, amt + 0.32);
+    FF.slam(tl, "#rf-a2", c("r_amount2"), 2.1);
+    FF.shake(tl, "#rf-shk", c("r_amount2") + 0.1, 14);
+    FF.burst(tl, "#rf-fx", c("r_amount2") + 0.1, { x: 1560, y: 330, n: 22, kind: "coin", r: 560, seed: 33, fall: 700 });
+    FF.riseWords(tl, "#rf-sub", c("r_bonus"), 0.08);
+    tl.fromTo("#rf-rule", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3, ease: "expo.out" }, c("r_rule"));
+
+    FF.whipOut(tl, "#rf-stage", -1, end);
+    window.__timelines["referral"] = tl;
+  </script>
+</template>

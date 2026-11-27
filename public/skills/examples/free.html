@@ -1,0 +1,148 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    /* Daily calendar */
+    #f-q { position: absolute; left: 130px; top: 110px; }
+    #f-cal { position: absolute; left: 150px; top: 290px; width: 800px; height: 540px; }
+    #f-days { position: absolute; left: 44px; right: 44px; top: 200px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    #f-days div { height: 130px; border-radius: 22px; background: rgba(6, 16, 46, 0.7); border: 2px solid var(--stroke); display: flex; align-items: center; justify-content: center; font-family: var(--font-head); font-weight: 700; font-size: 50px; color: var(--ink-dim); }
+    #f-calhead { position: absolute; left: 0; right: 0; top: 0; height: 160px; border-radius: 30px 30px 0 0; background: linear-gradient(90deg, #17b86a, #2bd07a); display: flex; align-items: center; justify-content: center; color: #03230f; }
+    #f-daily { position: absolute; left: 1010px; top: 250px; width: 800px; text-align: center; font-size: 96px; }
+    #f-stamp { position: absolute; left: 1120px; top: 590px; width: 580px; height: 290px; border: 16px solid var(--green); border-radius: 36px; display: flex; align-items: center; justify-content: center; font-family: var(--font-head); font-weight: 800; font-size: 200px; line-height: 1; color: var(--green); background: rgba(5, 40, 26, 0.72); }
+    /* Beat stages */
+    .fb { position: absolute; inset: 0; }
+    #f-tk { position: absolute; left: 150px; top: 280px; width: 820px; height: 500px; }
+    #f-tkbody { position: absolute; inset: 0; border-radius: 40px; background: linear-gradient(135deg, #1c3f92, #0c1f55); border: 4px solid rgba(43, 208, 122, 0.8); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
+    #f-tkline { position: absolute; left: 560px; top: 22px; bottom: 22px; border-left: 8px dashed rgba(255, 255, 255, 0.4); }
+    #f-tklab { position: absolute; left: 50px; top: 90px; }
+    #f-tkprice { position: absolute; left: 50px; top: 200px; font-size: 200px; line-height: 1.1; color: #fff; }
+    #f-tkstrike { position: absolute; left: 34px; top: 310px; width: 380px; height: 18px; background: var(--red); border-radius: 10px; transform-origin: 0 50%; }
+    #f-tkzero { position: absolute; left: 600px; top: 150px; width: 180px; text-align: center; font-size: 210px; line-height: 1.1; color: var(--green); text-shadow: 0 0 50px rgba(43, 208, 122, 0.7); }
+    #f-tx1 { position: absolute; left: 1020px; top: 380px; width: 800px; }
+    #f-pad { position: absolute; left: 130px; top: 240px; width: 860px; height: 620px; }
+    #f-tx2 { position: absolute; left: 1020px; top: 270px; width: 800px; }
+    #f-skillbar { position: absolute; left: 1030px; top: 790px; width: 760px; height: 58px; border-radius: 30px; background: rgba(6, 16, 46, 0.8); border: 3px solid var(--stroke); overflow: hidden; }
+    #f-skillfill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: 0 50%; background: linear-gradient(90deg, #1e86ff, #2bd07a, #ffd65a); }
+    #f-trayrays { position: absolute; left: 90px; top: -60px; width: 1200px; height: 1200px; }
+    #f-tro { position: absolute; left: 290px; top: 190px; width: 800px; height: 760px; }
+    #f-tx3 { position: absolute; left: 1060px; top: 340px; width: 780px; }
+  </style>
+
+  <div id="root" data-composition-id="free" data-width="1920" data-height="1080">
+    <div class="clip fill" id="f-clip" data-start="0" data-duration="11.370">
+      <div class="stage" id="f-stage"><div class="shk" id="f-shk">
+
+        <div class="fb" id="f-b1">
+          <div class="t t-lg" id="f-q">একদম <span class="green">ফ্রিতে</span> খেলতে চান?</div>
+          <div class="glass" id="f-cal">
+            <div id="f-calhead" class="t t-lg" style="color:#03230f;text-shadow:none">প্রতিদিন</div>
+            <div id="f-days"><div>শনি</div><div>রবি</div><div>সোম</div><div>মঙ্গল</div><div>বুধ</div><div>বৃহঃ</div><div>শুক্র</div><div id="f-all" style="font-size:40px">প্রতিদিন</div></div>
+          </div>
+          <div class="t t-xl" id="f-daily">ফ্রি ফায়ার টুর্নামেন্ট</div>
+          <div id="f-stamp">ফ্রি</div>
+        </div>
+
+        <div class="fb" id="f-b2">
+          <div id="f-tk">
+            <div id="f-tkbody"></div>
+            <div id="f-tkline"></div>
+            <div class="t t-md blue" id="f-tklab">এন্ট্রি ফি</div>
+            <div class="t" id="f-tkprice">৳১৩</div>
+            <div id="f-tkstrike"></div>
+            <div class="t" id="f-tkzero">০</div>
+          </div>
+          <div class="t t-xl" id="f-tx1">কোনো <span class="green">এন্ট্রি ফি</span> ছাড়াই</div>
+        </div>
+
+        <div class="fb" id="f-b3">
+          <svg id="f-pad" viewBox="0 0 860 620">
+            <defs><linearGradient id="f-pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b8cff"/><stop offset="1" stop-color="#0a3fa8"/></linearGradient></defs>
+            <path d="M210 150 H650 C780 150 850 330 830 470 C820 560 730 590 670 510 L610 430 H250 L190 510 C130 590 40 560 30 470 C10 330 80 150 210 150 Z" fill="url(#f-pg)" stroke="#9fd0ff" stroke-width="7"/>
+            <g id="f-dpad"><rect x="176" y="238" width="44" height="130" rx="9" fill="#fff"/><rect x="133" y="281" width="130" height="44" rx="9" fill="#fff"/></g>
+            <circle id="f-p1" cx="620" cy="238" r="32" fill="#ffd65a"/>
+            <circle id="f-p2" cx="688" cy="302" r="32" fill="#2bd07a"/>
+            <circle id="f-p3" cx="552" cy="302" r="32" fill="#ff6a76"/>
+            <circle id="f-p4" cx="620" cy="366" r="32" fill="#fff"/>
+          </svg>
+          <div class="t t-xl" id="f-tx2">নিজের<br /><span class="gold">গেমিং স্কিল</span> দেখান</div>
+          <div id="f-skillbar"><div id="f-skillfill"></div></div>
+        </div>
+
+        <div class="fb" id="f-b4">
+          <div id="f-trayrays"></div>
+          <svg id="f-tro" viewBox="0 0 800 760">
+            <defs><linearGradient id="f-tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".5" stop-color="#ffc21e"/><stop offset="1" stop-color="#b6761a"/></linearGradient></defs>
+            <path d="M240 130 H120 C110 300 190 360 280 370" fill="none" stroke="#ffc21e" stroke-width="30" stroke-linecap="round"/>
+            <path d="M560 130 H680 C690 300 610 360 520 370" fill="none" stroke="#ffc21e" stroke-width="30" stroke-linecap="round"/>
+            <path d="M220 90 H580 V260 C580 390 490 450 400 450 C310 450 220 390 220 260 Z" fill="url(#f-tg)" stroke="#fff3c0" stroke-width="5"/>
+            <rect x="366" y="450" width="68" height="110" fill="#ffc21e"/>
+            <rect x="270" y="556" width="260" height="46" rx="12" fill="#ffd65a"/>
+            <rect x="222" y="600" width="356" height="66" rx="16" fill="url(#f-tg)"/>
+            <path d="M400 150 L428 212 L495 218 L444 262 L460 328 L400 292 L340 328 L356 262 L305 218 L372 212 Z" fill="#fff"/>
+          </svg>
+          <div class="t t-xl" id="f-tx3">ম্যাচ জিতে<br /><span class="gold">পুরস্কার</span> পাওয়ার<br />সুযোগ</div>
+        </div>
+
+        <div class="layer" id="f-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("free");
+    const end = FF.t.dur("free");
+    document.getElementById("f-trayrays").innerHTML = FF.raysSvg(1200, 18, "#ffc21e");
+
+    // Beat 1: one question, then the calendar lights up day by day.
+    FF.whipIn(tl, "#f-stage", -1, 0);
+    FF.blurWords(tl, "#f-q", 0.04, 0.08);
+    const dl = c("f_daily");
+    tl.fromTo("#f-cal", { y: 1000, rotation: -6 }, { y: 0, rotation: 0, duration: 0.55, ease: "expo.out" }, c("f_for"));
+    gsap.utils.toArray("#f-days div").forEach((d, i) => {
+      tl.to(d, { backgroundColor: "#2bd07a", color: "#03230f", borderColor: "#c8ffe3", duration: 0.08, ease: "none" }, dl + i * 0.1);
+      tl.fromTo(d, { scale: 1 }, { scale: 1.1, duration: 0.08, ease: "power2.out", yoyo: true, repeat: 1, immediateRender: false }, dl + i * 0.1);
+    });
+    FF.riseWords(tl, "#f-daily", c("f_ff"), 0.08);
+    const st = c("f_ff") + 0.5;
+    tl.fromTo("#f-stamp", { opacity: 0, scale: 2.6, rotation: -22 }, { opacity: 1, scale: 1, rotation: -7, duration: 0.2, ease: "power4.in" }, st);
+    FF.shake(tl, "#f-shk", st + 0.2, 20);
+    FF.ring(tl, "#f-fx", st + 0.2, { x: 1410, y: 735, r: 500, color: "#2bd07a" });
+    FF.burst(tl, "#f-fx", st + 0.2, { x: 1410, y: 735, n: 20, kind: "spark", colors: ["#2bd07a", "#fff"], r: 520, seed: 17 });
+
+    // Beat 2: the price is struck out and the torn stub reads zero.
+    const en = c("f_entry");
+    tl.to("#f-b1", { x: -700, opacity: 0, filter: "blur(14px)", duration: 0.2, ease: "power3.in" }, en - 0.2);
+    tl.fromTo("#f-tk", { x: 900, rotation: 8, opacity: 0 }, { x: 0, rotation: 0, opacity: 1, duration: 0.42, ease: "expo.out" }, en);
+    FF.blurWords(tl, "#f-tx1", en + 0.06, 0.08);
+    tl.fromTo("#f-tkstrike", { scaleX: 0 }, { scaleX: 1, duration: 0.22, ease: "expo.out" }, en + 0.58);
+    tl.to("#f-tkprice", { opacity: 0.25, duration: 0.2 }, en + 0.6);
+    FF.slam(tl, "#f-tkzero", en + 0.72, 2.6);
+    FF.ring(tl, "#f-fx", en + 0.8, { x: 840, y: 530, r: 300, color: "#2bd07a", w: 9 });
+
+    // Beat 3: the pad is played; the skill bar fills on the buttons.
+    const sk = c("f_skill");
+    tl.to("#f-b2", { x: -700, opacity: 0, filter: "blur(14px)", duration: 0.2, ease: "power3.in" }, sk - 0.2);
+    tl.fromTo("#f-pad", { x: -500, rotation: -16, scale: 0.7, opacity: 0 }, { x: 0, rotation: -4, scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.5)" }, sk);
+    FF.riseWords(tl, "#f-tx2", sk + 0.02, 0.08);
+    tl.fromTo("#f-skillbar", { opacity: 0 }, { opacity: 1, duration: 0.14 }, sk + 0.4);
+    tl.fromTo("#f-skillfill", { scaleX: 0 }, { scaleX: 1, duration: Math.max(0.8, c("f_win") - sk - 0.7), ease: "power2.inOut" }, sk + 0.44);
+    ["#f-p1", "#f-p3", "#f-p2", "#f-p4", "#f-p1", "#f-p2"].forEach((b, i) => {
+      const o = { p1: "620 238", p2: "688 302", p3: "552 302", p4: "620 366" }[b.slice(3)];
+      tl.fromTo(b, { scale: 1, svgOrigin: o }, { scale: 0.62, duration: 0.06, ease: "power2.in", yoyo: true, repeat: 1, immediateRender: false }, sk + 0.55 + i * 0.2);
+    });
+    tl.to("#f-pad", { rotation: 2, duration: 0.2, ease: "power1.inOut", yoyo: true, repeat: 3 }, sk + 0.55);
+
+    // Beat 4: the trophy rises into its own light; confetti falls.
+    const wn = c("f_win");
+    tl.to("#f-b3", { y: -500, opacity: 0, filter: "blur(14px)", duration: 0.2, ease: "power3.in" }, wn - 0.2);
+    tl.fromTo("#f-tro", { y: 720, scale: 0.7 }, { y: 0, scale: 1, duration: 0.55, ease: "back.out(1.5)" }, wn);
+    tl.fromTo("#f-trayrays", { opacity: 0, scale: 0.4 }, { opacity: 0.95, scale: 1, duration: 0.5, ease: "expo.out" }, wn + 0.24);
+    tl.to("#f-trayrays", { rotation: 34, duration: Math.max(1, end - wn), ease: "none" }, wn + 0.24);
+    FF.blurWords(tl, "#f-tx3", wn + 0.12, 0.1);
+    FF.burst(tl, "#f-fx", wn + 0.48, { x: 690, y: 330, n: 52, kind: "confetti", r: 760, seed: 3, fall: 700 });
+
+    FF.zoomOut(tl, "#f-stage", end);
+    window.__timelines["free"] = tl;
+  </script>
+</template>

@@ -1,0 +1,172 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #au-star { position: absolute; left: 760px; top: 170px; width: 400px; height: 400px; }
+    #au-feat { position: absolute; left: 0; right: 0; top: 590px; text-align: center; }
+    #au-title { position: absolute; left: 0; right: 0; top: 96px; text-align: center; font-size: 92px; transform-origin: 50% 50%; }
+    #au-wires { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+    #au-gears { position: absolute; left: 700px; top: 370px; width: 520px; height: 460px; }
+    .au-p { position: absolute; width: 620px; height: 330px; padding: 30px 36px; }
+    #au-p1 { left: 90px; top: 290px; }
+    #au-p2 { left: 1210px; top: 290px; }
+    #au-p3 { left: 90px; top: 680px; }
+    #au-p4 { left: 1210px; top: 680px; }
+    .au-p { height: 340px; }
+    .au-lab { display: flex; align-items: center; gap: 18px; }
+    .au-lab .ok { position: relative; width: 56px; height: 56px; flex: 0 0 auto; }
+    .au-val { margin-top: 26px; height: 130px; border-radius: 22px; background: rgba(6, 16, 46, 0.78); border: 2px solid var(--stroke); display: flex; align-items: center; justify-content: center; gap: 12px; }
+    #au-p1 .au-val b { font-family: var(--font-head); font-size: 76px; font-weight: 800; color: var(--gold-2); width: 56px; text-align: center; }
+    #au-p2 .au-val i { display: block; width: 44px; height: 44px; border-radius: 50%; background: #9fd0ff; }
+    #au-prog { position: relative; width: 480px; height: 42px; border-radius: 22px; background: #0a1a45; overflow: hidden; }
+    #au-progf { position: absolute; inset: 0; transform-origin: 0 50%; background: linear-gradient(90deg, #ffc21e, #ffd65a); }
+    #au-p4 .au-val { align-items: flex-end; padding-bottom: 12px; gap: 26px; }
+    #au-p4 .bar { width: 96px; border-radius: 12px 12px 0 0; transform-origin: 50% 100%; }
+    #au-sys { position: absolute; left: 720px; width: 480px; top: 856px; text-align: center; font-size: 44px; white-space: nowrap; }
+    .au-ok { position: absolute; right: 26px; top: 24px; width: 72px; height: 72px; }
+  </style>
+
+  <div id="root" data-composition-id="auto" data-width="1920" data-height="1080">
+    <div class="clip fill" id="au-clip" data-start="0" data-duration="13.150">
+      <div class="stage" id="au-stage"><div class="shk" id="au-shk">
+
+        <div class="layer" id="au-l1">
+          <svg id="au-star" viewBox="0 0 400 400">
+            <path d="M200 20 L250 140 L380 150 L280 235 L312 365 L200 295 L88 365 L120 235 L20 150 L150 140 Z" fill="#ffc21e" stroke="#fff0a8" stroke-width="10" stroke-linejoin="round"/>
+          </svg>
+          <div class="t t-xl" id="au-feat">এবার আসি সবচেয়ে <span class="gold">আকর্ষণীয় ফিচারে</span></div>
+        </div>
+
+        <div class="layer" id="au-l2">
+          <svg id="au-wires" viewBox="0 0 1920 1080" fill="none" stroke-width="8" stroke-linecap="round">
+            <path id="au-w1" stroke="#49a6ff" d="M780 560 C740 520 760 450 712 450" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+            <path id="au-w2" stroke="#49a6ff" d="M1140 560 C1180 520 1160 450 1208 450" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+            <path id="au-w3" stroke="#49a6ff" d="M780 680 C740 720 760 850 712 850" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+            <path id="au-w4" stroke="#49a6ff" d="M1140 680 C1180 720 1160 850 1208 850" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+          </svg>
+          <svg id="au-gears" viewBox="0 0 520 460">
+            <defs>
+              <g id="au-tooth"><rect x="-26" y="-182" width="52" height="56" rx="10"/></g>
+            </defs>
+            <g id="au-g1" fill="#1e86ff">
+              <g id="au-g1t"></g>
+              <circle cx="190" cy="250" r="142"/><circle cx="190" cy="250" r="142" fill="none" stroke="#9fd0ff" stroke-width="6"/><circle cx="190" cy="250" r="62" fill="#07122f"/>
+            </g>
+            <g id="au-g2" fill="#ffc21e">
+              <g id="au-g2t"></g>
+              <circle cx="392" cy="128" r="84"/><circle cx="392" cy="128" r="84" fill="none" stroke="#fff0a8" stroke-width="5"/><circle cx="392" cy="128" r="34" fill="#07122f"/>
+            </g>
+            <text x="190" y="272" text-anchor="middle" font-family="Anek Bangla" font-weight="800" font-size="52" fill="#ffd65a">অটো</text>
+          </svg>
+          <div class="t" id="au-title">টুর্নামেন্ট সিস্টেম <span class="blue">সম্পূর্ণ অটোমেটিক</span></div>
+
+          <div class="t t-md green" id="au-sys">অটোমেটিক সিস্টেম</div>
+          <div class="glass au-p" id="au-p1">
+            <div class="au-lab t t-md">রুম আইডি</div>
+            <div class="au-val"><b>৪</b><b>৮</b><b>২</b><b>৯</b><b>১</b><b>৬</b></div>
+          </div>
+          <div class="glass au-p" id="au-p2">
+            <div class="au-lab t t-md">পাসওয়ার্ড</div>
+            <div class="au-val"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="glass au-p" id="au-p3">
+            <div class="au-lab t t-md">ম্যাচ ম্যানেজমেন্ট</div>
+            <div class="au-val"><div id="au-prog"><div id="au-progf"></div></div></div>
+          </div>
+          <div class="glass au-p" id="au-p4">
+            <div class="au-lab t t-md">ম্যাচের রেজাল্ট</div>
+            <div class="au-val" style="position:relative">
+              <div class="bar" id="au-b2" style="height:64px;background:#9fd0ff"></div>
+              <div class="bar" id="au-b1" style="height:104px;background:#ffc21e"></div>
+              <div class="bar" id="au-b3" style="height:44px;background:#e5a06a"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer" id="au-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("auto");
+    const end = FF.t.dur("auto");
+
+    // Teeth are generated so the two gears really mesh.
+    const svgNS = "http://www.w3.org/2000/svg";
+    function teeth(id, cx, cy, n, inner, tw, th, fill) {
+      const g = document.getElementById(id);
+      if (g.childNodes.length) return;
+      for (let i = 0; i < n; i++) {
+        const r = document.createElementNS(svgNS, "rect");
+        r.setAttribute("x", cx - tw / 2);
+        r.setAttribute("y", cy - inner - th);
+        r.setAttribute("width", tw);
+        r.setAttribute("height", th + 8);
+        r.setAttribute("rx", 7);
+        r.setAttribute("fill", fill);
+        r.setAttribute("transform", "rotate(" + (i * 360) / n + " " + cx + " " + cy + ")");
+        g.appendChild(r);
+      }
+    }
+    teeth("au-g1t", 190, 250, 14, 140, 34, 34, "#1e86ff");
+    teeth("au-g2t", 392, 128, 9, 82, 28, 28, "#ffc21e");
+
+    // Feature lead-in: the star spins in, then the camera dives through it.
+    FF.zoomIn(tl, "#au-stage", 0);
+    tl.fromTo("#au-star", { rotation: -300, scale: 0, opacity: 0 }, { rotation: 0, scale: 1, opacity: 1, duration: 0.7, ease: "back.out(1.5)" }, 0);
+    FF.blurWords(tl, "#au-feat", 0.1, 0.09);
+    FF.ring(tl, "#au-fx", 0.5, { x: 960, y: 370, r: 460, color: "#ffd65a" });
+    FF.burst(tl, "#au-fx", 0.5, { x: 960, y: 370, n: 22, kind: "spark", colors: ["#ffd65a", "#fff"], r: 560, seed: 19 });
+    const a = c("a_auto");
+    tl.to("#au-star", { scale: 5, rotation: 90, opacity: 0, duration: 0.22, ease: "power3.in" }, a - 0.22);
+    FF.out(tl, "#au-feat", a - 0.2);
+
+    // Title slams, the machine starts turning.
+    FF.slam(tl, "#au-title", a, 1.5);
+    FF.shake(tl, "#au-shk", a + 0.14, 16);
+    tl.fromTo("#au-gears", { scale: 0, rotation: -120, opacity: 0 }, { scale: 1.55, rotation: 0, opacity: 1, duration: 0.55, ease: "back.out(1.6)" }, a + 0.08);
+    tl.to("#au-gears", { scale: 1, duration: 0.5, ease: "power2.inOut" }, c("a_room") - 0.46);
+    const run = end - a;
+    // Same pitch speed at the mesh: angle ratio is the inverse of the tooth ratio.
+    tl.to("#au-g1", { rotation: 360 * 2.25, svgOrigin: "190 250", duration: run, ease: "none" }, a);
+    tl.to("#au-g2", { rotation: (-360 * 2.25 * 14) / 9, svgOrigin: "392 128", duration: run, ease: "none" }, a);
+
+    // Each panel wakes and runs itself when the voice names it.
+    function wake(panel, wire, t) {
+      tl.fromTo(panel, { opacity: 0, scale: 0.72, rotationY: panel.endsWith("1") || panel.endsWith("3") ? 34 : -34, transformPerspective: 1300 },
+        { opacity: 1, scale: 1, rotationY: 0, duration: 0.45, ease: "expo.out" }, t);
+      tl.to(wire, { strokeDashoffset: 0, duration: 0.22, ease: "power2.out" }, t - 0.1);
+    }
+    const rm = c("a_room");
+    wake("#au-p1", "#au-w1", rm);
+    tl.fromTo("#au-p1 .au-val b", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.08, stagger: 0.09, ease: "none" }, rm + 0.14);
+    const pw = c("a_pass");
+    wake("#au-p2", "#au-w2", pw);
+    tl.fromTo("#au-p2 .au-val i", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.1, stagger: 0.08, ease: "back.out(3)" }, pw + 0.14);
+    const mg = c("a_mgmt");
+    wake("#au-p3", "#au-w3", mg);
+    tl.fromTo("#au-progf", { scaleX: 0 }, { scaleX: 1, duration: 1, ease: "power2.inOut" }, mg + 0.14);
+    const rs = c("a_result");
+    wake("#au-p4", "#au-w4", rs);
+    tl.fromTo("#au-p4 .bar", { scaleY: 0 }, { scaleY: 1, duration: 0.42, stagger: 0.1, ease: "back.out(1.8)" }, rs + 0.14);
+    FF.burst(tl, "#au-fx", rs + 0.5, { x: 1520, y: 860, n: 16, kind: "spark", colors: ["#ffd65a", "#fff"], r: 300, seed: 23 });
+
+    // "অটোমেটিক সিস্টেমের মাধ্যমে": every panel is ticked off, green, one after another.
+    const sys = c("a_sys");
+    FF.riseWords(tl, "#au-sys", sys, 0.1);
+    ["#au-p1", "#au-p2", "#au-p3", "#au-p4"].forEach((p, i) => {
+      const panel = document.querySelector(p);
+      const ok = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      ok.setAttribute("viewBox", "0 0 72 72");
+      ok.setAttribute("class", "au-ok");
+      ok.innerHTML = '<circle cx="36" cy="36" r="34" fill="#2bd07a"/><path d="M19 37 L31 49 L54 23" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>';
+      panel.appendChild(ok);
+      tl.fromTo(ok, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(3)" }, sys + 0.2 + i * 0.22);
+      tl.to(p, { borderColor: "#2bd07a", duration: 0.2, ease: "none" }, sys + 0.2 + i * 0.22);
+      ["#au-w1", "#au-w2", "#au-w3", "#au-w4"].forEach((w, j) => { if (j === i) tl.to(w, { stroke: "#2bd07a", duration: 0.2, ease: "none" }, sys + 0.2 + i * 0.22); });
+    });
+    FF.whipOut(tl, "#au-stage", 1, end);
+    window.__timelines["auto"] = tl;
+  </script>
+</template>

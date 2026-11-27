@@ -1,0 +1,63 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #ec-rays { position: absolute; left: 160px; top: -500px; width: 1600px; height: 1600px; }
+    #ec-logo { position: absolute; left: 700px; top: 40px; width: 520px; height: 520px; object-fit: contain; }
+    #ec-tag { position: absolute; left: 0; right: 0; top: 540px; text-align: center; line-height: 1.26; }
+    #ec-go { position: absolute; left: 0; right: 0; top: 730px; text-align: center; color: var(--ink-dim); }
+    #ec-bar { position: absolute; left: 400px; top: 810px; width: 1120px; height: 170px; border-radius: 85px; background: linear-gradient(90deg, #0b57d0, #1e86ff); border: 5px solid #9fd0ff; box-shadow: 0 0 80px rgba(40, 140, 255, 0.7); display: flex; align-items: center; justify-content: center; gap: 28px; }
+    #ec-url { font-family: Poppins, sans-serif; font-weight: 700; font-size: 86px; color: #fff; line-height: 1; white-space: nowrap; }
+    #ec-url span { display: inline-block; }
+    #ec-caret { display: inline-block; width: 8px; height: 84px; background: #fff; }
+  </style>
+
+  <div id="root" data-composition-id="endcard" data-width="1920" data-height="1080">
+    <div class="clip fill" id="ec-clip" data-start="0" data-duration="8.000">
+      <div class="stage" id="ec-stage"><div class="shk" id="ec-shk">
+        <div id="ec-rays"></div>
+        <img id="ec-logo" src="assets/img/logo.png" alt="FairFight BD" />
+        <div class="t t-lg" id="ec-tag">খেলুন <span class="blue">নিজের স্কিলে,</span> জিতুন <span class="gold">নিজের যোগ্যতায়!</span></div>
+        <div class="t t-md" id="ec-go" style="color:#c6d6f2">ডাউনলোড করতে ভিজিট করুন</div>
+        <div id="ec-bar">
+          <svg width="96" height="96" viewBox="0 0 96 96" fill="none" stroke="#fff" stroke-width="7"><circle cx="48" cy="48" r="42"/><ellipse cx="48" cy="48" rx="18" ry="42"/><path d="M6 48 H90 M14 26 H82 M14 70 H82"/></svg>
+          <div id="ec-url"><span>f</span><span>a</span><span>i</span><span>r</span><span>f</span><span>i</span><span>g</span><span>h</span><span>t</span><span>b</span><span>d</span><span>.</span><span>c</span><span>o</span><span>m</span><i id="ec-caret"></i></div>
+        </div>
+        <div class="layer" id="ec-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("endcard");
+    const end = FF.t.dur("endcard");
+    document.getElementById("ec-rays").innerHTML = FF.raysSvg(1600, 20, "#49a6ff");
+
+    FF.zoomIn(tl, "#ec-stage", 0);
+    tl.fromTo("#ec-logo", { opacity: 0, scale: 2.2, rotation: -7, filter: "blur(16px)" },
+      { opacity: 1, scale: 1, rotation: 0, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, 0);
+    FF.shake(tl, "#ec-shk", 0.2, 18);
+    FF.ring(tl, "#ec-fx", 0.2, { x: 960, y: 300, r: 720, color: "#49a6ff", w: 12 });
+    tl.fromTo("#ec-rays", { opacity: 0 }, { opacity: 0.55, duration: 0.4, ease: "power2.out" }, 0.1);
+    tl.to("#ec-rays", { rotation: 22, duration: end, ease: "none" }, 0.1);
+
+    FF.split("#ec-tag");
+    const words = gsap.utils.toArray("#ec-tag .w");
+    tl.fromTo(words.slice(0, 3), { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, stagger: 0.09, ease: "power2.out" }, c("e_tag1"));
+    tl.fromTo(words.slice(3), { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, stagger: 0.09, ease: "power2.out" }, c("e_tag2"));
+
+    // The address types itself, then the bar lands the last word of the film.
+    const go = c("e_visit");
+    FF.blurWords(tl, "#ec-go", go, 0.08);
+    tl.fromTo("#ec-bar", { y: 240, scale: 0.6, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.42, ease: "back.out(1.5)" }, go);
+    const letters = gsap.utils.toArray("#ec-url span");
+    const ty = c("e_url");
+    tl.fromTo(letters, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.055, ease: "none" }, ty);
+    const done = ty + letters.length * 0.055;
+    tl.to("#ec-caret", { opacity: 0, duration: 0.01 }, done + 0.1);
+    FF.ring(tl, "#ec-fx", done + 0.08, { x: 960, y: 895, r: 640, color: "#ffd65a", w: 10 });
+    FF.burst(tl, "#ec-fx", done + 0.08, { x: 960, y: 895, n: 26, kind: "spark", colors: ["#ffd65a", "#9fd0ff", "#fff"], r: 620, seed: 43 });
+
+    window.__timelines["endcard"] = tl;
+  </script>
+</template>

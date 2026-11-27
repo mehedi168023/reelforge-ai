@@ -1,0 +1,122 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #ac-t1 { position: absolute; left: 110px; top: 70px; }
+    #ac-t2 { position: absolute; left: 110px; top: 180px; }
+    #ac-radar { position: absolute; left: 100px; top: 320px; width: 690px; height: 690px; }
+    #ac-hack { position: absolute; left: 640px; top: 310px; width: 640px; height: 640px; }
+    #ac-rows { position: absolute; left: 900px; top: 340px; width: 900px; }
+    .ac-r { position: relative; height: 136px; margin-bottom: 20px; display: flex; align-items: center; gap: 28px; padding: 0 36px; border-radius: 24px; }
+    .ac-r .av { width: 84px; height: 84px; border-radius: 50%; background: #1e86ff; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+    .ac-r .st { margin-left: auto; font-family: var(--font-head); font-weight: 800; font-size: 46px; }
+        #ac-flag { position: absolute; right: 26px; top: 26px; padding: 8px 28px; border-radius: 18px; background: var(--red); color: #fff; font-family: var(--font-head); font-weight: 800; font-size: 50px; line-height: 1.2; }
+    #ac-scan { position: absolute; left: -12px; right: -12px; top: 0; height: 14px; border-radius: 8px; background: #7fe0ff; box-shadow: 0 0 34px 8px rgba(90, 210, 255, 0.85); }
+    /* Fair play resolve */
+    #ac-shield { position: absolute; left: 150px; top: 130px; width: 760px; height: 820px; }
+    #ac-rays { position: absolute; left: -70px; top: -60px; width: 1200px; height: 1200px; }
+    #ac-fair { position: absolute; left: 950px; top: 320px; width: 880px; }
+    #ac-note { position: absolute; left: 950px; top: 716px; width: 880px; color: var(--ink-dim); }
+  </style>
+
+  <div id="root" data-composition-id="anticheat" data-width="1920" data-height="1080">
+    <div class="clip fill" id="ac-clip" data-start="0" data-duration="9.040">
+      <div class="stage" id="ac-stage"><div class="shk" id="ac-shk">
+
+        <div class="layer" id="ac-l1">
+          <div class="t t-md red" id="ac-t1">হ্যাকারদের আটকানোর জন্য</div>
+          <div class="t t-xl" id="ac-t2">বিশেষ <span class="blue">অ্যান্টি-চিট ডিটেকশন</span></div>
+          <svg id="ac-radar" viewBox="0 0 690 690">
+            <defs><linearGradient id="ac-sw" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#5ad2ff" stop-opacity=".75"/><stop offset="1" stop-color="#5ad2ff" stop-opacity="0"/></linearGradient></defs>
+            <circle cx="345" cy="345" r="330" fill="rgba(5,30,60,.8)" stroke="#5ad2ff" stroke-width="8"/>
+            <g fill="none" stroke="#5ad2ff" stroke-opacity=".4" stroke-width="4"><circle cx="345" cy="345" r="240"/><circle cx="345" cy="345" r="150"/><circle cx="345" cy="345" r="62"/><path d="M15 345 H675 M345 15 V675"/></g>
+            <g id="ac-sweep"><path d="M345 345 L345 15 A330 330 0 0 0 58 180 Z" fill="url(#ac-sw)" opacity=".9"/><line x1="345" y1="345" x2="345" y2="15" stroke="#bff0ff" stroke-width="7"/></g>
+            <circle id="ac-d1" cx="205" cy="225" r="16" fill="#2bd07a"/>
+            <circle id="ac-d2" cx="480" cy="190" r="16" fill="#2bd07a"/>
+            <circle id="ac-d3" cx="195" cy="480" r="16" fill="#2bd07a"/>
+            <circle id="ac-bad" cx="490" cy="450" r="22" fill="#ff4d5e"/>
+          </svg>
+          <svg id="ac-hack" viewBox="0 0 640 640">
+            <path d="M320 40 C160 40 90 170 90 320 C90 430 70 520 40 600 H600 C570 520 550 430 550 320 C550 170 480 40 320 40 Z" fill="#0a0d1c" stroke="#ff4d5e" stroke-width="10" stroke-linejoin="round"/>
+            <path d="M320 140 C220 140 180 220 180 310 C180 410 250 480 320 480 C390 480 460 410 460 310 C460 220 420 140 320 140 Z" fill="#000"/>
+            <path id="ac-eye1" d="M222 300 L296 330 L284 356 C250 356 226 334 222 300 Z" fill="#ff2f4a"/>
+            <path id="ac-eye2" d="M418 300 L344 330 L356 356 C390 356 414 334 418 300 Z" fill="#ff2f4a"/>
+            <path d="M240 420 H400 M268 420 V450 M320 420 V450 M372 420 V450" stroke="#ff4d5e" stroke-width="8" stroke-linecap="round" fill="none"/>
+          </svg>
+          <div id="ac-rows">
+            <div class="glass ac-r" id="ac-r1"><div class="av"><svg width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="20" r="13" fill="#fff"/><path d="M6 55 a22 20 0 0 1 44 0 z" fill="#fff"/></svg></div><div class="t t-md">প্লেয়ার ১</div></div>
+            <div class="glass ac-r" id="ac-r2"><div class="av" id="ac-av2"><svg width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="20" r="13" fill="#fff"/><path d="M6 55 a22 20 0 0 1 44 0 z" fill="#fff"/></svg></div><div class="t t-md">প্লেয়ার ২</div><div id="ac-flag">সন্দেহজনক</div></div>
+            <div class="glass ac-r" id="ac-r3"><div class="av"><svg width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="20" r="13" fill="#fff"/><path d="M6 55 a22 20 0 0 1 44 0 z" fill="#fff"/></svg></div><div class="t t-md">প্লেয়ার ৩</div></div>
+            <div id="ac-scan"></div>
+          </div>
+        </div>
+
+        <div class="layer" id="ac-l2">
+          <div id="ac-rays"></div>
+          <svg id="ac-shield" viewBox="0 0 760 820">
+            <defs><linearGradient id="ac-sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3cf0a0"/><stop offset="1" stop-color="#0d8f58"/></linearGradient></defs>
+            <path d="M380 30 L700 140 V410 C700 600 550 730 380 790 C210 730 60 600 60 410 V140 Z" fill="url(#ac-sg)" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+            <path d="M380 92 L640 182 V410 C640 565 520 668 380 722" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="12"/>
+            <path id="ac-tick" d="M214 408 L340 534 L560 276" fill="none" stroke="#fff" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+          </svg>
+          <div class="t t-hero" id="ac-fair"><span class="green">ফেয়ার</span><br />গেমপ্লে</div>
+          <div class="t t-md" id="ac-note" style="color:#c6d6f2">নিশ্চিত করতে সাহায্য করে</div>
+        </div>
+
+        <div class="layer" id="ac-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("anticheat");
+    const end = FF.t.dur("anticheat");
+    document.getElementById("ac-rays").innerHTML = FF.raysSvg(1200, 18, "#2bd07a");
+
+    FF.whipIn(tl, "#ac-stage", -1, 0);
+    FF.blurWords(tl, "#ac-t1", 0.04, 0.08);
+    const sysT = c("c_sys");
+    // The hacker shows up first; when the detection system starts he shrinks into its red blip.
+    tl.fromTo("#ac-hack", { scale: 0.5, opacity: 0, y: 200 }, { scale: 1, opacity: 1, y: 0, duration: 0.42, ease: "back.out(1.6)" }, 0.1);
+    FF.shake(tl, "#ac-shk", 0.36, 12);
+    [0, 0.12, 0.24, 0.36].forEach((d, i) => tl.set(["#ac-eye1", "#ac-eye2"], { opacity: i % 2 ? 1 : 0.2 }, 0.62 + d));
+    tl.to("#ac-hack", { x: -370, y: 150, scale: 0.05, opacity: 0, duration: 0.42, ease: "power3.in" }, sysT + 0.1);
+    FF.riseWords(tl, "#ac-t2", sysT, 0.08);
+    tl.fromTo("#ac-radar", { scale: 0.3, opacity: 0, rotation: -60 }, { scale: 1, opacity: 1, rotation: 0, duration: 0.55, ease: "expo.out" }, sysT - 0.1);
+    const det = c("c_detect");
+    const fair = c("c_fair");
+    tl.to("#ac-sweep", { rotation: 360 * 5, svgOrigin: "345 345", duration: fair - sysT, ease: "none" }, sysT);
+    tl.fromTo("#ac-bad", { opacity: 0 }, { opacity: 1, duration: 0.05 }, sysT + 1.1);
+    ["#ac-d1", "#ac-d2", "#ac-d3"].forEach((d, i) => FF.pop(tl, d, sysT + 0.3 + i * 0.26, { dur: 0.25 }));
+
+    // Players are listed, the scan line runs, one row trips the alarm.
+    ["#ac-r1", "#ac-r2", "#ac-r3"].forEach((r, i) => {
+      tl.fromTo(r, { x: 500, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "expo.out" }, sysT + 0.3 + i * 0.13);
+    });
+    tl.fromTo("#ac-scan", { y: 0, opacity: 0 }, { y: 460, opacity: 1, duration: 0.65, ease: "sine.inOut", yoyo: true, repeat: 1 }, det - 1.32);
+    tl.to("#ac-scan", { opacity: 0, duration: 0.1 }, det - 0.02);
+    tl.to("#ac-r2", { backgroundColor: "rgba(150, 18, 40, 0.75)", borderColor: "#ff4d5e", duration: 0.05 }, det);
+    tl.to("#ac-av2", { backgroundColor: "#ff4d5e", duration: 0.05 }, det);
+    tl.fromTo("#ac-flag", { opacity: 0, scale: 2, rotation: -10 }, { opacity: 1, scale: 1, rotation: -3, duration: 0.2, ease: "power4.in" }, det);
+    FF.shake(tl, "#ac-shk", det + 0.2, 22);
+    [0, 0.09, 0.18, 0.27].forEach((d, i) => tl.set("#ac-r2", { x: i % 2 ? -12 : 12 }, det + 0.22 + d));
+    tl.set("#ac-r2", { x: 0 }, det + 0.58);
+    tl.to("#ac-bad", { attr: { r: 44 }, duration: 0.14, ease: "power2.out", yoyo: true, repeat: 5 }, det);
+    FF.ring(tl, "#ac-fx", det, { x: 590, y: 770, r: 300, color: "#ff4d5e", w: 10 });
+
+    // Shield slams, the alarm clears, and the world goes green.
+    FF.out(tl, "#ac-l1", fair - 0.14);
+    tl.fromTo("#ac-shield", { y: -1500, scale: 1.3, rotation: -6 }, { y: 0, scale: 1, rotation: 0, duration: 0.24, ease: "power4.in" }, fair - 0.1);
+    FF.shake(tl, "#ac-shk", fair + 0.14, 30);
+    FF.ring(tl, "#ac-fx", fair + 0.14, { x: 530, y: 540, r: 1000, color: "#2bd07a", w: 18, dur: 0.7 });
+    FF.burst(tl, "#ac-fx", fair + 0.14, { x: 530, y: 540, n: 36, kind: "spark", colors: ["#2bd07a", "#c8ffe3", "#fff"], r: 880, seed: 31 });
+    tl.fromTo("#ac-rays", { opacity: 0, scale: 0.4 }, { opacity: 0.8, scale: 1, duration: 0.5, ease: "expo.out" }, fair + 0.14);
+    tl.to("#ac-rays", { rotation: 26, duration: Math.max(1, end - fair), ease: "none" }, fair + 0.14);
+    tl.to("#ac-tick", { strokeDashoffset: 0, duration: 0.3, ease: "power2.out" }, fair + 0.24);
+    FF.slam(tl, "#ac-fair", fair + 0.08, 1.6);
+    FF.blurWords(tl, "#ac-note", c("c_help"), 0.08);
+
+    FF.whipOut(tl, "#ac-stage", -1, end);
+    window.__timelines["anticheat"] = tl;
+  </script>
+</template>

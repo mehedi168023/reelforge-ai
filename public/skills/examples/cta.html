@@ -1,0 +1,96 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #ct-why { position: absolute; left: 0; right: 0; top: 400px; text-align: center; }
+    #ct-phone { position: absolute; left: 170px; top: 90px; width: 500px; height: 920px; border-radius: 70px; background: linear-gradient(170deg, #1a3a84, #0a1838); border: 12px solid #5a7cc4; box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), 0 0 80px rgba(40, 140, 255, 0.35); }
+    #ct-notch { position: absolute; left: 165px; top: 22px; width: 150px; height: 30px; border-radius: 16px; background: #050b1f; }
+    #ct-logo { position: absolute; left: 80px; top: 100px; width: 316px; height: 316px; object-fit: contain; }
+    #ct-ringw { position: absolute; left: 118px; top: 450px; width: 240px; height: 240px; }
+    #ct-pct { position: absolute; left: 118px; top: 522px; width: 240px; text-align: center; font-size: 58px; line-height: 1.5; color: #fff; }
+    #ct-okbtn { position: absolute; left: 60px; top: 730px; width: 356px; height: 110px; border-radius: 30px; background: linear-gradient(180deg, #49a6ff, #1565d8); display: flex; align-items: center; justify-content: center; }
+    #ct-dl { position: absolute; left: 760px; top: 170px; width: 1100px; font-size: 104px; white-space: nowrap; }
+    #ct-list { position: absolute; left: 760px; top: 370px; width: 1040px; }
+    .ct-i { position: relative; display: flex; align-items: center; gap: 30px; height: 158px; padding: 0 36px; margin-bottom: 22px; }
+    .ct-i .ic { width: 112px; height: 112px; flex: 0 0 auto; position: relative; }
+  </style>
+
+  <div id="root" data-composition-id="cta" data-width="1920" data-height="1080">
+    <div class="clip fill" id="ct-clip" data-start="0" data-duration="9.040">
+      <div class="stage" id="ct-stage"><div class="shk" id="ct-shk">
+        <div class="t t-hero" id="ct-why">তাহলে আর <span class="gold">দেরি কেন?</span></div>
+
+        <div id="ct-phone">
+          <div id="ct-notch"></div>
+          <img id="ct-logo" src="assets/img/logo.png" alt="" />
+          <svg id="ct-ringw" viewBox="0 0 240 240">
+            <circle cx="120" cy="120" r="104" fill="none" stroke="#0a1a45" stroke-width="22"/>
+            <circle id="ct-ring" cx="120" cy="120" r="104" fill="none" stroke="#2bd07a" stroke-width="22" stroke-linecap="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110" transform="rotate(-90 120 120)"/>
+          </svg>
+          <div class="t" id="ct-pct">০%</div>
+          <div class="t t-md" id="ct-okbtn">ডাউনলোড</div>
+        </div>
+
+        <div class="t" id="ct-dl">আজই <span class="gold">ডাউনলোড</span> করুন</div>
+
+        <div id="ct-list">
+          <div class="glass ct-i" id="ct-i1">
+            <svg class="ic" id="ct-ic1" viewBox="0 0 112 112"><rect x="12" y="50" width="88" height="54" rx="8" fill="#ffc21e"/><rect id="ct-giftlid" x="4" y="30" width="104" height="24" rx="7" fill="#ffd65a"/><rect x="48" y="30" width="16" height="74" fill="#e01f42"/><path d="M56 30 C30 2 12 14 24 26 C32 34 46 32 56 30 Z M56 30 C82 2 100 14 88 26 C80 34 66 32 56 30 Z" fill="#e01f42"/></svg>
+            <div class="t t-md">ওয়েলকাম বোনাস নিন</div>
+          </div>
+          <div class="glass ct-i" id="ct-i2">
+            <svg class="ic" id="ct-ic2" viewBox="0 0 112 112"><rect x="8" y="18" width="96" height="86" rx="12" fill="#14306e" stroke="#9fd0ff" stroke-width="5"/><rect x="8" y="18" width="96" height="28" rx="10" fill="#2bd07a"/><path id="ct-calck" d="M32 74 L50 90 L82 58" fill="none" stroke="#2bd07a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/></svg>
+            <div class="t t-md">প্রতিদিনের ফ্রি টুর্নামেন্ট খেলুন</div>
+          </div>
+          <div class="glass ct-i" id="ct-i3" style="overflow:visible">
+            <svg class="ic" id="ct-ic3" viewBox="0 0 112 112"><path d="M56 6 C78 26 84 54 74 80 H38 C28 54 34 26 56 6 Z" fill="#fff"/><circle cx="56" cy="44" r="12" fill="#1e86ff"/><path d="M38 66 L18 90 L40 84 Z M74 66 L94 90 L72 84 Z" fill="#ff6a76"/><path id="ct-flame" d="M44 82 H68 L56 110 Z" fill="#ffc21e"/></svg>
+            <div class="t t-md">স্কিল নিয়ে যান <span class="gold">নতুন উচ্চতায়</span></div>
+          </div>
+        </div>
+        <div class="layer" id="ct-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("cta");
+    const end = FF.t.dur("cta");
+
+    FF.zoomIn(tl, "#ct-stage", 0);
+    FF.greyWords(tl, "#ct-why", 0.02, 0.14);
+    const dl = c("d_dl");
+    tl.to("#ct-why", { y: -520, opacity: 0, filter: "blur(14px)", duration: 0.2, ease: "power3.in" }, dl - 0.2);
+
+    // The phone rises, the ring fills on the word, and the button is pressed for real.
+    tl.fromTo("#ct-phone", { y: 1100, rotation: -10 }, { y: 0, rotation: 0, duration: 0.55, ease: "expo.out" }, dl - 0.1);
+    FF.slam(tl, "#ct-dl", dl, 1.6);
+    FF.shake(tl, "#ct-shk", dl + 0.14, 14);
+    tl.fromTo("#ct-logo", { scale: 0, rotation: -40 }, { scale: 1, rotation: 0, duration: 0.5, ease: "back.out(1.9)" }, dl + 0.2);
+    const fill = dl + 0.4;
+    const fd = Math.max(0.9, c("d_bonus") - fill - 0.1);
+    tl.to("#ct-ring", { strokeDashoffset: 0, duration: fd, ease: "power1.inOut" }, fill);
+    const pct = { v: 0 };
+    const pe = document.getElementById("ct-pct");
+    tl.to(pct, { v: 100, duration: fd, ease: "power1.inOut", onUpdate: () => { pe.textContent = FF.bn(pct.v) + "%"; } }, fill);
+    const ok = fill + fd;
+    tl.to("#ct-okbtn", { backgroundColor: "#2bd07a", duration: 0.12 }, ok);
+    tl.fromTo("#ct-okbtn", { scale: 1 }, { scale: 1.1, duration: 0.1, yoyo: true, repeat: 1, ease: "power2.out", immediateRender: false }, ok);
+    FF.ring(tl, "#ct-fx", ok, { x: 420, y: 660, r: 340, color: "#2bd07a" });
+
+    // Three promises, each icon acting out its own line.
+    const a1 = c("d_bonus");
+    tl.fromTo("#ct-i1", { x: 700, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "expo.out" }, a1);
+    tl.fromTo("#ct-giftlid", { y: 0 }, { y: -22, rotation: -14, svgOrigin: "56 42", duration: 0.26, ease: "back.out(3)" }, a1 + 0.28);
+    FF.burst(tl, "#ct-fx", a1 + 0.3, { x: 860, y: 450, n: 12, kind: "coin", r: 240, seed: 37, fall: 240 });
+    const a2 = c("d_free");
+    tl.fromTo("#ct-i2", { x: 700, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "expo.out" }, a2);
+    tl.to("#ct-calck", { strokeDashoffset: 0, duration: 0.28, ease: "power2.out" }, a2 + 0.26);
+    const a3 = c("d_skill");
+    tl.fromTo("#ct-i3", { x: 700, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "expo.out" }, a3);
+    tl.to("#ct-ic3", { y: -1040, x: 50, rotation: 8, duration: 0.6, ease: "power3.in" }, c("d_high"));
+    FF.burst(tl, "#ct-fx", c("d_high") + 0.12, { x: 860, y: 800, n: 18, kind: "spark", colors: ["#ffc21e", "#ff8a2a", "#fff"], r: 240, seed: 39 });
+
+    FF.zoomOut(tl, "#ct-stage", end);
+    window.__timelines["cta"] = tl;
+  </script>
+</template>

@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!-- Neon Reels: a worked 14 s talking-head overlay. The footage draws under this page (project.json "footage"),
+     so the background stays transparent. Times here are invented; in a real job every `at` and `times` value
+     comes from words.json. project.json for this page:
+     {"width":1080,"height":1920,"fps":30,"duration":14,"footage":"input/clip.mp4",
+      "grade":{"brightness":0.94,"contrast":1.16,"saturation":0.88,"tint":"#2a5cff","tintAmount":0.12,"vignette":0.5},
+      "camera":[{"t":0,"zoom":1.12,"y":0.42,"ease":"cut"},{"t":0.05,"zoom":1,"dur":0.6},
+                {"t":3.4,"zoom":1.22,"y":0.38,"ease":"cut"},{"t":3.4,"shake":14},
+                {"t":5.9,"zoom":1,"ease":"cut"},{"t":6,"zoom":1.12,"ease":"push","dur":3},
+                {"t":9.6,"zoom":1.25,"y":0.4,"ease":"cut"},{"t":11.8,"zoom":1,"ease":"cut"}],
+      "audio":[{"file":"assets/sfx/whoosh.mp3","start":0.05,"volume":0.35},{"file":"assets/sfx/sparkle.mp3","start":0.4,"volume":0.25},
+               {"file":"assets/sfx/whoosh-low.mp3","start":1.75,"volume":0.3},{"file":"assets/sfx/glitch-1.mp3","start":3.35,"volume":0.3},
+               {"file":"assets/sfx/impact-light.mp3","start":3.4,"volume":0.35},{"file":"assets/sfx/pop-high.mp3","start":6.05,"volume":0.35},
+               {"file":"assets/sfx/pop.mp3","start":9.6,"volume":0.35},{"file":"assets/sfx/ping.mp3","start":11.9,"volume":0.25}]} -->
+<script>window.onerror=function(m){window.__rfError=String(m)}</script>
+<script src="assets/gsap.min.js"></script><script src="assets/reels.js"></script>
+<style>
+@font-face{font-family:'Anek Bangla';src:url('assets/fonts/anek-bangla.woff2');font-weight:500 800}
+*{margin:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden;background:transparent}
+/* A dark band behind the caption zone keeps neon readable on bright snow or sky. Static, so it costs nothing per frame. */
+#floor{position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.42) 45%,rgba(0,0,0,.6))}
+</style></head><body>
+<div id="floor"></div>
+<script>
+const tl = window.__tl = gsap.timeline({ paused: true });
+const W = 1080, H = 1920;
+
+// 0.0 Hook: glass card with a light leak and a streak, on the first frame so the thumbnail has a headline.
+RF.lightLeak(tl, { t: 0, dur: 1.6, color: 'gold', side: 'right' });
+RF.glassCard(tl, { t: 0, end: 1.8, text: 'এডিটিং শিখতে চান?', color: 'gold', y: H * 0.40, from: 'right' });
+RF.streak(tl, { t: 0.32, y: H * 0.40, color: 'gold' });
+
+// 1.8 Second claim: purple card from the other side, the question mark on red.
+RF.lightLeak(tl, { t: 1.8, dur: 1.4, color: 'purple', side: 'left' });
+RF.glassCard(tl, { t: 1.8, end: 3.3, text: 'কিন্তু শুরু কোথায়', color: 'purple', y: H * 0.46, from: 'left' });
+RF.glassCard(tl, { t: 2.1, end: 3.3, text: '?', color: 'red', x: W * 0.78, y: H * 0.34, size: 90, tilt: 8 });
+
+// 3.4 Pain line: neon red over white, skulls rising, on a punch-in with a shake (in project.json).
+RF.neonText(tl, { t: 3.4, end: 5.9, y: H * 0.62, lines: [
+  { text: 'এডিটিং করতে গিয়ে', color: 'red', times: [3.4, 3.75] },
+  { text: 'কত কষ্ট হয়', at: 4.3 },
+]});
+RF.emojiRain(tl, { t: 4.5, dur: 1.8, emoji: ['💀'], n: 9, seed: 4, top: 0.68 });
+
+// 6.0 Feeling word: a sticker lands on it.
+RF.neonText(tl, { t: 6.0, end: 8.2, y: H * 0.6, lines: [
+  { text: 'ঠান্ডায় হাত কাঁপছে', color: 'red', at: 6.0 },
+]});
+RF.sticker(tl, { t: 6.4, end: 8.2, emoji: '🥶', y: H * 0.74 });
+
+// 8.3 English line on the wide moment, high in frame, accent word glowing blue.
+RF.wordPop(tl, { t: 8.3, end: 9.5, text: 'just like a heaven', times: [8.3, 8.5, 8.65, 8.8], accent: [3], color: 'blue', y: H * 0.2 });
+
+// 9.6 Topic noun: an icon tile with the neon line beside it.
+RF.iconTile(tl, { t: 9.6, end: 11.7, svg: RF.icons.chart, color: 'red', x: W * 0.5, y: H * 0.56, size: 190 });
+RF.neonText(tl, { t: 9.8, end: 11.7, y: H * 0.67, lines: [{ text: 'ট্রেডিং এর কারণে', color: 'red', times: [9.8, 10.1, 10.3] }] });
+
+// 11.9 List line: karaoke box, then a rain of hot faces on the payoff.
+RF.dashBox(tl, { t: 11.9, end: 14, text: 'আপনারাও ট্রাই করে দেখুন', color: 'purple', times: [12.0, 12.35, 12.7, 13.0], y: H * 0.62 });
+RF.emojiRain(tl, { t: 12.6, dur: 1.4, emoji: ['🥵', '😮‍💨'], n: 10, seed: 9, top: 0.68 });
+tl.set({}, {}, 14);
+</script></body></html>

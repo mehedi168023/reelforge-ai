@@ -1,0 +1,157 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    /* Sign-up card */
+    #w-card { position: absolute; left: 150px; top: 250px; width: 700px; height: 560px; padding: 44px; }
+    #w-card .row { display: flex; align-items: center; gap: 28px; }
+    #w-card .ava { width: 136px; height: 136px; border-radius: 50%; background: #1e86ff; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    #w-card .bar { height: 84px; border-radius: 20px; background: rgba(6, 16, 46, 0.72); border: 2px solid var(--stroke); margin-top: 26px; display: flex; align-items: center; padding: 0 30px; }
+    #w-card .dot { width: 22px; height: 22px; border-radius: 50%; background: #9fd0ff; margin-right: 14px; }
+    #w-btn { height: 104px; border-radius: 24px; background: linear-gradient(180deg, #ffd65a, #e8a80f); margin-top: 30px; display: flex; align-items: center; justify-content: center; color: #1a1200; }
+    #w-cursor { position: absolute; left: 700px; top: 860px; width: 92px; height: 92px; }
+    /* Gift */
+    #w-gift { position: absolute; left: 1080px; top: 380px; width: 520px; height: 560px; }
+    #w-giftrays { position: absolute; left: 730px; top: -150px; width: 1200px; height: 1200px; }
+    #w-lid { transform-origin: 50% 100%; }
+    #w-coinbig { position: absolute; left: 1215px; top: 430px; width: 250px; height: 250px; }
+    #w-amt { position: absolute; left: 870px; top: 120px; width: 900px; text-align: center; }
+    #w-amt .pre { font-size: 88px; color: #fff; }
+    #w-num { font-size: 230px; line-height: 1.05; color: var(--gold-2); text-shadow: 0 0 60px rgba(255, 194, 30, 0.65); }
+    #w-lab { position: absolute; left: 150px; top: 120px; }
+    /* Two matches */
+    #w2-head { position: absolute; left: 0; right: 0; top: 90px; text-align: center; }
+    #w2-title { position: absolute; left: 0; right: 0; top: 820px; text-align: center; }
+    #w2-coin { position: absolute; left: 790px; top: 330px; width: 340px; height: 340px; }
+    .tkt { position: absolute; top: 280px; width: 660px; height: 450px; border-radius: 36px; overflow: hidden;
+      background: linear-gradient(150deg, #1c3f92, #0c1f55); border: 3px solid rgba(255, 214, 90, 0.75);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 0 40px rgba(255,194,30,0.25); }
+    #w2-t1 { left: 240px; }
+    #w2-t2 { left: 1020px; }
+    .tkt .top { height: 190px; display: flex; align-items: center; justify-content: center; background: linear-gradient(120deg, rgba(255, 182, 30, 0.95), rgba(255, 120, 30, 0.85)); }
+    .tkt .name { text-align: center; margin-top: 34px; }
+    .tkt .sub { text-align: center; color: var(--ink-dim); margin-top: 6px; }
+    .tkt .perf { position: absolute; left: 24px; right: 24px; top: 190px; border-top: 6px dashed rgba(255, 255, 255, 0.5); }
+    #w-fx { pointer-events: none; }
+  </style>
+
+  <div id="root" data-composition-id="welcome" data-width="1920" data-height="1080">
+    <div class="clip fill" id="w-clip" data-start="0" data-duration="8.910">
+      <div class="stage" id="w-stage"><div class="shk" id="w-shk">
+
+        <div class="layer" id="w-l1">
+          <div class="t t-lg blue" id="w-lab">নতুন অ্যাকাউন্ট খুললেই</div>
+          <div class="glass" id="w-card">
+            <div class="row">
+              <div class="ava"><svg width="90" height="90" viewBox="0 0 90 90"><circle cx="45" cy="30" r="22" fill="#fff"/><path d="M8 88 a37 34 0 0 1 74 0 z" fill="#fff"/></svg></div>
+              <div class="t t-md">নতুন অ্যাকাউন্ট</div>
+            </div>
+            <div class="bar" id="w-f1"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+            <div id="w-btn" class="t t-md" style="color:#1a1200;text-shadow:none">খুলুন</div>
+          </div>
+          <svg id="w-cursor" viewBox="0 0 92 92"><path d="M18 6 L18 72 L36 56 L50 86 L64 80 L50 50 L74 48 Z" fill="#fff" stroke="#0a1533" stroke-width="5" stroke-linejoin="round"/></svg>
+
+          <div id="w-giftrays"></div>
+          <div id="w-amt">
+            <div class="t pre" id="w-pre">প্রায়</div>
+            <div class="t" id="w-num">৳০</div>
+            <div class="t t-lg" id="w-bonus">ওয়েলকাম বোনাস</div>
+          </div>
+          <div id="w-coinbig"></div>
+          <svg id="w-gift" viewBox="0 0 520 560">
+            <g id="w-box">
+              <rect x="60" y="240" width="400" height="290" rx="26" fill="url(#w-bg)"/>
+              <rect x="222" y="240" width="76" height="290" fill="#ffd65a"/>
+              <rect x="60" y="240" width="400" height="44" fill="#000" opacity=".2"/>
+              <defs><linearGradient id="w-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b8cff"/><stop offset="1" stop-color="#0a3fa8"/></linearGradient></defs>
+            </g>
+            <g id="w-lid">
+              <rect x="30" y="170" width="460" height="86" rx="20" fill="#1e86ff" stroke="#9fd0ff" stroke-width="4"/>
+              <rect x="222" y="170" width="76" height="86" fill="#ffd65a"/>
+              <path d="M260 168 C210 90 130 80 130 130 C130 170 210 172 260 168 Z" fill="#ffd65a" stroke="#b6861a" stroke-width="5"/>
+              <path d="M260 168 C310 90 390 80 390 130 C390 170 310 172 260 168 Z" fill="#ffd65a" stroke="#b6861a" stroke-width="5"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="layer" id="w-l2">
+          <div class="t t-lg" id="w2-head"><span id="w2-ha">সবচেয়ে মজার ব্যাপার,</span> <span class="gold" id="w2-hb">এই বোনাস দিয়েই</span></div>
+          <div id="w2-coin"></div>
+          <div class="tkt" id="w2-t1">
+            <div class="top"><svg width="170" height="130" viewBox="0 0 170 130"><path d="M14 112 L6 34 L52 66 L85 8 L118 66 L164 34 L156 112 Z" fill="#2b1a00"/><rect x="14" y="116" width="142" height="12" rx="6" fill="#2b1a00"/></svg></div>
+            <div class="perf"></div>
+            <div class="t t-lg name">ম্যাচ ১</div>
+            <div class="t t-sm sub">টুর্নামেন্ট</div>
+          </div>
+          <div class="tkt" id="w2-t2">
+            <div class="top"><svg width="170" height="130" viewBox="0 0 170 130"><path d="M14 112 L6 34 L52 66 L85 8 L118 66 L164 34 L156 112 Z" fill="#2b1a00"/><rect x="14" y="116" width="142" height="12" rx="6" fill="#2b1a00"/></svg></div>
+            <div class="perf"></div>
+            <div class="t t-lg name">ম্যাচ ২</div>
+            <div class="t t-sm sub">টুর্নামেন্ট</div>
+          </div>
+          <div class="t t-xl" id="w2-title"><span class="gold">দুইটি</span> টুর্নামেন্ট ম্যাচ</div>
+        </div>
+
+        <div class="layer" id="w-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("welcome");
+    const end = FF.t.dur("welcome");
+    document.getElementById("w-coinbig").innerHTML = FF.coinSvg(250);
+    document.getElementById("w-giftrays").innerHTML = FF.raysSvg(1200, 16, "#ffc21e");
+
+    // New account: the card lands with the cut, the form fills, a cursor taps.
+    FF.whipIn(tl, "#w-stage", 1, 0);
+    FF.blurWords(tl, "#w-lab", 0.04, 0.08);
+    tl.fromTo("#w-card", { rotationY: -24, rotationX: 8, transformPerspective: 1400 }, { rotationY: 0, rotationX: 0, duration: 0.7, ease: "expo.out" }, 0);
+    tl.fromTo("#w-f1 .dot", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.16, stagger: 0.07, ease: "back.out(3)" }, 0.45);
+    const tap = c("w_open");
+    tl.fromTo("#w-cursor", { x: 340, y: 240, opacity: 0 }, { x: -220, y: -130, opacity: 1, duration: 0.5, ease: "expo.out" }, tap - 0.5);
+    tl.to("#w-cursor", { scale: 0.82, duration: 0.07, ease: "power2.in", yoyo: true, repeat: 1 }, tap);
+    tl.to("#w-btn", { scale: 0.94, duration: 0.07, ease: "power2.in", yoyo: true, repeat: 1 }, tap);
+    FF.ring(tl, "#w-fx", tap + 0.03, { x: 500, y: 690, r: 150, color: "#ffd65a", w: 8, dur: 0.4 });
+
+    // The gift drops, trembles, and the lid blows off on "ওয়েলকাম বোনাস".
+    tl.fromTo("#w-gift", { y: -1200, rotation: -8 }, { y: 0, rotation: 0, duration: 0.5, ease: "bounce.out" }, tap + 0.1);
+    const gh = c("w_bonus");
+    [-5, 5, -7, 7, -4, 0].forEach((r, i) => tl.set("#w-gift", { rotation: r }, gh - 0.42 + i * 0.07));
+    tl.to("#w-lid", { y: -640, x: 240, rotation: 48, svgOrigin: "260 200", opacity: 0, duration: 0.62, ease: "power2.out" }, gh);
+    FF.shake(tl, "#w-shk", gh, 16);
+    FF.ring(tl, "#w-fx", gh, { x: 1340, y: 640, r: 640, color: "#ffd65a", w: 12 });
+    FF.burst(tl, "#w-fx", gh, { x: 1340, y: 620, n: 26, kind: "coin", r: 760, seed: 21, spread: 2.5, fall: 620 });
+    tl.fromTo("#w-giftrays", { opacity: 0, scale: 0.3 }, { opacity: 0.9, scale: 1, duration: 0.55, ease: "expo.out" }, gh);
+    tl.to("#w-giftrays", { rotation: 50, duration: Math.max(1, c("w_fun") - gh), ease: "none" }, gh);
+    tl.fromTo("#w-coinbig", { y: 240, scale: 0.3, opacity: 0 }, { y: -40, scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.8)" }, gh + 0.04);
+    tl.to("#w-coinbig", { rotationY: 720, duration: 0.9, ease: "power2.out" }, gh + 0.04);
+    tl.to("#w-coinbig", { opacity: 0, scale: 0.6, y: -240, duration: 0.2, ease: "power2.in" }, gh + 0.5);
+    FF.slam(tl, "#w-num", gh + 0.5, 1.9);
+    FF.count(tl, "#w-num", gh + 0.5, 0, 15, 0.7, "৳");
+    FF.blurWords(tl, "#w-pre", gh + 0.42, 0.06);
+    FF.blurWords(tl, "#w-bonus", gh + 1.1, 0.08);
+
+    // "দুইটি": the amount spends itself. Tickets print out of the cut.
+    const fun = c("w_fun");
+    tl.to("#w-l1", { opacity: 0, y: -140, filter: "blur(12px)", duration: 0.22, ease: "power3.in" }, fun - 0.22);
+    FF.blurWords(tl, "#w2-ha", fun, 0.09);
+    document.getElementById("w2-coin").innerHTML = FF.coinSvg(340);
+    tl.fromTo("#w2-coin", { y: -700, scale: 0.5, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "bounce.out" }, fun + 0.04);
+    tl.to("#w2-coin", { rotationY: 1800, duration: c("w_two") - fun - 0.1, ease: "power1.in" }, fun + 0.1);
+    FF.blurWords(tl, "#w2-hb", c("w_this"), 0.09);
+    FF.ring(tl, "#w-fx", c("w_this"), { x: 960, y: 500, r: 380, color: "#ffd65a" });
+    const two = c("w_two");
+    // The spinning coin splits in two: each half becomes a match ticket.
+    tl.to("#w2-coin", { scale: 0, opacity: 0, duration: 0.14, ease: "power2.in" }, two - 0.08);
+    tl.fromTo("#w2-t1", { x: 340, y: 40, rotation: 18, scale: 0.5, opacity: 0 }, { x: 0, y: 0, rotation: -3, scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.5)" }, two);
+    tl.fromTo("#w2-t2", { x: -340, y: 40, rotation: -18, scale: 0.5, opacity: 0 }, { x: 0, y: 0, rotation: 3, scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.5)" }, two + 0.26);
+    FF.shake(tl, "#w-shk", two + 0.2, 8);
+    FF.shake(tl, "#w-shk", two + 0.46, 8);
+    FF.burst(tl, "#w-fx", two + 0.4, { x: 960, y: 500, n: 22, kind: "spark", colors: ["#ffd65a", "#ffffff"], r: 640, seed: 9 });
+    FF.riseWords(tl, "#w2-title", c("w_match"), 0.08);
+
+    FF.whipOut(tl, "#w-stage", 1, end);
+    window.__timelines["welcome"] = tl;
+  </script>
+</template>

@@ -1,0 +1,82 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    .bw-tape { position: absolute; left: -200px; width: 2320px; height: 120px;
+      background: repeating-linear-gradient(-45deg, #ffc21e 0 70px, #120a02 70px 140px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }
+    #bw-t1 { top: 30px; transform-origin: 50% 50%; }
+    #bw-t2 { top: 930px; }
+    #bw-hand { position: absolute; left: 150px; top: 300px; width: 480px; height: 480px; }
+    #bw-stop { position: absolute; left: 650px; top: 340px; width: 1160px; font-size: 200px; line-height: 1.2; }
+    #bw-rays { position: absolute; left: -40px; top: -460px; width: 2000px; height: 2000px; }
+    #bw-boom1 { position: absolute; left: 0; right: 0; top: 240px; text-align: center; }
+    #bw-boom2 { position: absolute; left: 0; right: 0; top: 400px; text-align: center; font-size: 216px; line-height: 1.2; color: var(--gold-2); text-shadow: 0 0 70px rgba(255, 150, 20, 0.85), 0 10px 0 #7a2200; }
+    #bw-orb { position: absolute; left: 610px; top: 390px; width: 700px; height: 700px; border-radius: 50%; background: radial-gradient(circle, #fff3c0 0%, #ffb020 30%, rgba(255, 90, 20, 0.5) 52%, transparent 70%); }
+    #bw-flash { position: absolute; inset: 0; background: #ffe9a8; opacity: 0; }
+  </style>
+
+  <div id="root" data-composition-id="butwait" data-width="1920" data-height="1080">
+    <div class="clip fill" id="bw-clip" data-start="0" data-duration="3.640">
+      <div class="stage" id="bw-stage"><div class="shk" id="bw-shk">
+        <div id="bw-rays"></div>
+        <div id="bw-orb"></div>
+        <div class="layer" id="bw-l1">
+          <svg id="bw-hand" viewBox="0 0 480 480">
+            <path d="M240 20 L420 80 V240 C420 360 330 430 240 465 C150 430 60 360 60 240 V80 Z" fill="#e01f42" stroke="#fff" stroke-width="12" stroke-linejoin="round"/>
+            <g fill="#fff">
+              <rect x="146" y="150" width="44" height="130" rx="22"/><rect x="196" y="112" width="44" height="168" rx="22"/><rect x="246" y="124" width="44" height="156" rx="22"/><rect x="296" y="160" width="44" height="120" rx="22"/>
+              <path d="M146 250 H340 V300 C340 360 290 390 240 390 C190 390 150 360 134 310 L112 250 C104 226 136 212 148 234 Z"/>
+            </g>
+          </svg>
+          <div class="t" id="bw-stop">কিন্তু<br /><span class="gold">দাঁড়ান!</span></div>
+        </div>
+        <div class="layer" id="bw-l2">
+          <div class="t t-xl" id="bw-boom1">আপনাদের জন্য আরও একটা</div>
+          <div class="t" id="bw-boom2">বিশাল ধামাকা!</div>
+        </div>
+        <div class="bw-tape" id="bw-t1"></div>
+        <div class="bw-tape" id="bw-t2"></div>
+        <div class="layer" id="bw-fx"></div>
+      </div></div>
+      <div id="bw-flash"></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("butwait");
+    const end = FF.t.dur("butwait");
+    document.getElementById("bw-rays").innerHTML = FF.raysSvg(2000, 22, "#ffb020");
+
+    // Hazard tape snaps across and a big hand stops the film dead.
+    tl.fromTo("#bw-t1", { x: -2400, rotation: -2 }, { x: 0, rotation: -2, duration: 0.18, ease: "expo.out" }, 0);
+    tl.fromTo("#bw-t2", { x: 2400, rotation: 2 }, { x: 0, rotation: 2, duration: 0.18, ease: "expo.out" }, 0.04);
+    tl.fromTo("#bw-hand", { opacity: 0, scale: 2.4, rotation: -18 }, { opacity: 1, scale: 1, rotation: -5, duration: 0.2, ease: "power4.in" }, 0.02);
+    FF.shake(tl, "#bw-shk", 0.22, 26);
+    FF.ring(tl, "#bw-fx", 0.22, { x: 390, y: 540, r: 620, color: "#ff5d72", w: 14 });
+    FF.slam(tl, "#bw-stop", 0.14, 2);
+
+    // A held breath, then it blows.
+    const boom = c("b_boom");
+    const lead = c("b_more");
+    tl.to("#bw-l1", { scale: 0.7, opacity: 0, filter: "blur(14px)", duration: 0.18, ease: "power3.in" }, lead - 0.18);
+    FF.blurWords(tl, "#bw-boom1", lead, 0.08);
+    // The charge grows under the riser, then detonates on "বিশাল".
+    tl.fromTo("#bw-orb", { scale: 0, opacity: 0 }, { scale: 0.62, opacity: 1, duration: boom - lead, ease: "power2.in" }, lead);
+    tl.to("#bw-orb", { scale: 3.4, opacity: 0, duration: 0.4, ease: "expo.out" }, boom);
+    tl.set("#bw-flash", { opacity: 0.95 }, boom);
+    tl.set("#bw-flash", { opacity: 0.4 }, boom + 1 / 30);
+    tl.set("#bw-flash", { opacity: 0 }, boom + 2 / 30);
+    FF.slam(tl, "#bw-boom2", boom - 0.02, 2.6);
+    FF.shake(tl, "#bw-shk", boom + 0.04, 30);
+    tl.to("#bw-t1", { y: -220, rotation: -9, duration: 0.3, ease: "power3.out" }, boom);
+    tl.to("#bw-t2", { y: 220, rotation: 9, duration: 0.3, ease: "power3.out" }, boom);
+    tl.fromTo("#bw-rays", { opacity: 0, scale: 0.3 }, { opacity: 0.85, scale: 1, duration: 0.42, ease: "expo.out" }, boom);
+    tl.to("#bw-rays", { rotation: 30, duration: Math.max(0.6, end - boom), ease: "none" }, boom);
+    FF.ring(tl, "#bw-fx", boom, { x: 960, y: 540, r: 1100, color: "#ffd65a", w: 20, dur: 0.7 });
+    FF.burst(tl, "#bw-fx", boom, { x: 960, y: 540, n: 46, kind: "spark", colors: ["#ffd65a", "#ff8a2a", "#ffffff"], r: 1040, seed: 13 });
+
+    FF.zoomOut(tl, "#bw-stage", end);
+    window.__timelines["butwait"] = tl;
+  </script>
+</template>

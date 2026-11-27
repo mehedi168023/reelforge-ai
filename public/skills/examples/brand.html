@@ -1,0 +1,72 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #br-kick { position: absolute; left: 0; right: 0; top: 440px; text-align: center; }
+    #br-rays { position: absolute; left: 260px; top: -160px; width: 1400px; height: 1400px; }
+    #br-logo, #br-sheenwrap { position: absolute; left: 650px; top: 90px; width: 620px; height: 620px; }
+    #br-logo { object-fit: contain; }
+    #br-sheenwrap { overflow: hidden;
+      -webkit-mask-image: url('assets/img/logo.png'); mask-image: url('assets/img/logo.png');
+      -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
+    #br-sheen { position: absolute; top: -20%; bottom: -20%; width: 170px; left: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.95), transparent); }
+    #br-name { position: absolute; left: 0; right: 0; top: 700px; text-align: center; }
+    #br-bolts { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+    #br-flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+  </style>
+
+  <div id="root" data-composition-id="brand" data-width="1920" data-height="1080">
+    <div class="clip fill" id="br-clip" data-start="0" data-duration="2.400">
+      <div class="stage" id="br-stage"><div class="shk" id="br-shk">
+        <div class="t t-xl" id="br-kick">আপনাদের জন্য <span class="gold">চলে এসেছে</span></div>
+        <div id="br-rays"></div>
+        <svg id="br-bolts" viewBox="0 0 1920 1080" fill="none" stroke="#9fd0ff" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+          <path id="br-b1" d="M640 380 L470 300 L500 380 L300 290" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+          <path id="br-b2" d="M1280 380 L1450 300 L1420 380 L1620 290" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+          <path id="br-b3" d="M660 560 L490 640 L520 560 L330 660" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+          <path id="br-b4" d="M1260 560 L1430 640 L1400 560 L1590 660" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+        </svg>
+        <img id="br-logo" src="assets/img/logo.png" alt="FairFight BD" />
+        <div id="br-sheenwrap"><div id="br-sheen"></div></div>
+        <div class="t t-xl" id="br-name">ফেয়ার ফাইট বিডি</div>
+        <div class="layer" id="br-fx"></div>
+      </div></div>
+      <div id="br-flash"></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("brand");
+    const end = FF.t.dur("brand");
+    const hit = c("b_name");
+    document.getElementById("br-rays").innerHTML = FF.raysSvg(1400, 18, "#49a6ff");
+
+    FF.zoomIn(tl, "#br-stage", 0);
+    // Energy gathers behind the words before the logo lands.
+    tl.fromTo("#br-rays", { opacity: 0.12, scale: 0.34, rotation: -40 }, { opacity: 0.34, scale: 0.62, rotation: 0, duration: hit, ease: "power1.in" }, 0);
+    FF.riseWords(tl, "#br-kick", 0.02, 0.09);
+    tl.to("#br-kick", { scale: 0.5, opacity: 0, filter: "blur(10px)", duration: 0.2, ease: "power3.in" }, hit - 0.2);
+
+    // The logo sting: one slam, one white frame, one ring, then the bolts crack outward.
+    tl.fromTo("#br-logo", { opacity: 0, scale: 2.6, rotation: -7, filter: "blur(18px)" },
+      { opacity: 1, scale: 1, rotation: 0, filter: "blur(0px)", duration: 0.26, ease: "expo.out" }, hit - 0.06);
+    tl.set("#br-flash", { opacity: 0.9 }, hit + 0.06);
+    tl.set("#br-flash", { opacity: 0.35 }, hit + 0.06 + 1 / 30);
+    tl.set("#br-flash", { opacity: 0 }, hit + 0.06 + 2 / 30);
+    FF.shake(tl, "#br-shk", hit + 0.06, 26);
+    FF.ring(tl, "#br-fx", hit + 0.06, { x: 960, y: 400, r: 760, color: "#49a6ff", w: 14, dur: 0.75 });
+    FF.ring(tl, "#br-fx", hit + 0.16, { x: 960, y: 400, r: 560, color: "#ffffff", w: 6, dur: 0.6 });
+    FF.burst(tl, "#br-fx", hit + 0.06, { x: 960, y: 400, n: 34, kind: "spark", colors: ["#49a6ff", "#9fd0ff", "#ffffff", "#ffd65a"], r: 820, seed: 5 });
+    tl.to("#br-rays", { opacity: 0.62, scale: 1, duration: 0.5, ease: "expo.out" }, hit + 0.06);
+    tl.to("#br-rays", { rotation: 26, duration: Math.max(0.5, end - hit), ease: "none" }, hit + 0.06);
+    ["#br-b1", "#br-b2", "#br-b3", "#br-b4"].forEach((b, i) => {
+      tl.to(b, { strokeDashoffset: 0, duration: 0.14, ease: "none" }, hit + 0.1 + i * 0.03);
+      tl.to(b, { opacity: 0, duration: 0.18, ease: "power1.in" }, hit + 0.36 + i * 0.03);
+    });
+    FF.blurWords(tl, "#br-name", hit + 0.22, 0.09);
+    tl.fromTo("#br-sheen", { x: -220 }, { x: 860, duration: 0.6, ease: "power2.inOut" }, hit + 0.5);
+
+    FF.zoomOut(tl, "#br-stage", end);
+    window.__timelines["brand"] = tl;
+  </script>
+</template>

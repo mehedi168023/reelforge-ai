@@ -1,0 +1,115 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; }
+    #pc-spot1, #pc-spot2 { position: absolute; top: -200px; width: 560px; height: 1400px; transform-origin: 50% 0%;
+      background: linear-gradient(180deg, rgba(150, 205, 255, 0.34), transparent 82%); clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%); }
+    #pc-spot1 { left: 170px; }
+    #pc-spot2 { left: 720px; }
+    #pc-rig { position: absolute; left: 70px; top: 170px; width: 1130px; height: 790px; }
+    #pc-logoscreen { position: absolute; left: 345px; top: 225px; width: 330px; height: 330px; object-fit: contain; }
+    #pc-kick { position: absolute; left: 1180px; top: 210px; width: 680px; }
+    #pc-title { position: absolute; left: 1180px; top: 290px; width: 680px; }
+    #pc-yes { position: absolute; left: 1180px; top: 210px; padding: 14px 44px; border-radius: 40px 40px 40px 6px; background: var(--gold); color: #1a1200; text-shadow: none; }
+    #pc-rule { position: absolute; left: 1180px; top: 360px; display: flex; align-items: center; gap: 22px; }
+    #pc-rule svg { flex: 0 0 auto; }
+    #pc-win { position: absolute; left: 1180px; top: 500px; font-size: 92px; width: 690px; }
+  </style>
+
+  <div id="root" data-composition-id="pc" data-width="1920" data-height="1080">
+    <div class="clip fill" id="pc-clip" data-start="0" data-duration="9.900">
+      <div class="stage" id="pc-stage"><div class="shk" id="pc-shk">
+        <div id="pc-spot1"></div><div id="pc-spot2"></div>
+
+        <svg id="pc-rig" viewBox="0 0 1130 790" fill="none">
+          <defs>
+            <linearGradient id="pc-sc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17408f"/><stop offset="1" stop-color="#070f30"/></linearGradient>
+            <linearGradient id="pc-rgbg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff4d9e"/><stop offset=".33" stop-color="#49a6ff"/><stop offset=".66" stop-color="#2bd07a"/><stop offset="1" stop-color="#ffd65a"/></linearGradient>
+          </defs>
+          <path id="pc-desk" d="M20 730 H1110" stroke="#9fd0ff" stroke-width="10" stroke-linecap="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/>
+          <g id="pc-mon">
+            <rect x="110" y="40" width="680" height="440" rx="26" fill="#0a1433" stroke="#9fd0ff" stroke-width="9"/>
+            <rect id="pc-scr" x="138" y="66" width="624" height="388" rx="12" fill="url(#pc-sc)"/>
+            <rect x="390" y="480" width="120" height="110" fill="#14285e"/>
+            <path d="M300 640 Q300 590 360 590 H540 Q600 590 600 640 Z" fill="#1a3373" stroke="#9fd0ff" stroke-width="5"/>
+            <rect id="pc-monrgb" x="110" y="472" width="680" height="10" rx="5" fill="url(#pc-rgbg)" opacity="0"/>
+          </g>
+          <g id="pc-tower">
+            <rect x="830" y="230" width="250" height="490" rx="26" fill="#0a1433" stroke="#9fd0ff" stroke-width="9"/>
+            <rect x="852" y="250" width="206" height="450" rx="14" fill="#071028"/>
+            <rect id="pc-twrgb" x="852" y="250" width="14" height="450" rx="7" fill="url(#pc-rgbg)" opacity="0"/>
+            <g id="pc-f1"><circle cx="960" cy="340" r="72" stroke="#49a6ff" stroke-width="9"/><g fill="#49a6ff"><path d="M960 340 C940 300 950 280 972 276 C985 300 980 325 960 340Z"/><path d="M960 340 C1000 320 1020 330 1024 352 C1000 365 975 360 960 340Z"/><path d="M960 340 C980 380 970 400 948 404 C935 380 940 355 960 340Z"/><path d="M960 340 C920 360 900 350 896 328 C920 315 945 320 960 340Z"/></g></g>
+            <g id="pc-f2"><circle cx="960" cy="520" r="72" stroke="#2bd07a" stroke-width="9"/><g fill="#2bd07a"><path d="M960 520 C940 480 950 460 972 456 C985 480 980 505 960 520Z"/><path d="M960 520 C1000 500 1020 510 1024 532 C1000 545 975 540 960 520Z"/><path d="M960 520 C980 560 970 580 948 584 C935 560 940 535 960 520Z"/><path d="M960 520 C920 540 900 530 896 508 C920 495 945 500 960 520Z"/></g></g>
+            <rect x="890" y="640" width="130" height="16" rx="8" fill="#ffd65a"/>
+          </g>
+          <g id="pc-kb">
+            <rect x="170" y="660" width="500" height="62" rx="14" fill="#14285e" stroke="#9fd0ff" stroke-width="5"/>
+            <rect id="pc-kbrgb" x="184" y="672" width="472" height="38" rx="6" fill="url(#pc-rgbg)" opacity="0"/>
+          </g>
+          <g id="pc-ms"><rect x="704" y="664" width="66" height="58" rx="28" fill="#14285e" stroke="#9fd0ff" stroke-width="5"/></g>
+        </svg>
+        <img id="pc-logoscreen" src="assets/img/logo.png" alt="" />
+
+        <div class="layer" id="pc-t1">
+          <div class="t t-sm blue" id="pc-kick">ফেয়ার ফাইট বিডিতে এখন চলছে</div>
+          <div class="t t-hero" id="pc-title" style="font-size:136px"><span class="gold">গেমিং পিসি</span><br />গিভঅ্যাওয়ে</div>
+        </div>
+
+        <div class="layer" id="pc-t2">
+          <div class="t t-md" id="pc-yes">হ্যাঁ, ঠিকই শুনেছেন!</div>
+          <div class="t t-md" id="pc-rule">
+            <svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="38" fill="#2bd07a"/><path id="pc-rulec" d="M22 44 L37 59 L63 28" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110"/></svg>
+            <span id="pc-ruletx">নিয়ম মেনে অংশ নিন</span>
+          </div>
+          <div class="t" id="pc-win">একটি <span class="gold">গেমিং পিসি</span><br />জেতার সুযোগ</div>
+        </div>
+
+        <div class="layer" id="pc-fx"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const c = FF.t.local("pc");
+    const end = FF.t.dur("pc");
+
+    // The PC is built piece by piece; each part lands with weight.
+    tl.fromTo("#pc-rig", { scale: 1.1 }, { scale: 1, duration: 1.4, ease: "expo.out" }, 0);
+    tl.to("#pc-desk", { strokeDashoffset: 0, duration: 0.3, ease: "power3.out" }, 0);
+    tl.fromTo("#pc-mon", { y: -860 }, { y: 0, duration: 0.42, ease: "bounce.out" }, 0.04);
+    FF.shake(tl, "#pc-shk", 0.2, 22);
+    tl.fromTo("#pc-tower", { x: 900 }, { x: 0, duration: 0.34, ease: "expo.out" }, 0.3);
+    tl.fromTo("#pc-kb", { y: 300, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "back.out(1.6)" }, 0.48);
+    tl.fromTo("#pc-ms", { y: 300, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "back.out(1.6)" }, 0.58);
+    FF.blurWords(tl, "#pc-kick", 0.1, 0.07);
+
+    // Power on: RGB sweeps, fans spin up, the screen boots to the logo on "গেমিং পিসি".
+    const on = c("p_pc");
+    ["#pc-monrgb", "#pc-twrgb", "#pc-kbrgb"].forEach((s, i) => tl.to(s, { opacity: 1, duration: 0.14, ease: "none" }, on + i * 0.05));
+    tl.to("#pc-f1", { rotation: 1980, svgOrigin: "960 340", duration: end - on, ease: "power1.in" }, on);
+    tl.to("#pc-f2", { rotation: -1980, svgOrigin: "960 520", duration: end - on, ease: "power1.in" }, on);
+    tl.fromTo("#pc-logoscreen", { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.36, ease: "back.out(2)" }, on + 0.08);
+    FF.ring(tl, "#pc-fx", on + 0.1, { x: 580, y: 500, r: 520, color: "#49a6ff" });
+    FF.slam(tl, "#pc-title", on, 1.7);
+    FF.shake(tl, "#pc-shk", on + 0.16, 16);
+    tl.fromTo("#pc-spot1", { rotation: -30, opacity: 0 }, { rotation: 18, opacity: 1, duration: 1.2, ease: "power2.inOut" }, on);
+    tl.fromTo("#pc-spot2", { rotation: 30, opacity: 0 }, { rotation: -14, opacity: 1, duration: 1.2, ease: "power2.inOut" }, on);
+    tl.to("#pc-spot1", { rotation: -8, duration: 2.6, ease: "sine.inOut" }, on + 1.2);
+    tl.to("#pc-spot2", { rotation: 12, duration: 2.6, ease: "sine.inOut" }, on + 1.2);
+
+    // "হ্যাঁ, ঠিকই শুনেছেন!": the bubble answers the viewer's disbelief, then the rule, then the chance.
+    const yes = c("p_yes");
+    FF.out(tl, "#pc-t1", yes - 0.16);
+    tl.fromTo("#pc-yes", { opacity: 0, scale: 0.3, transformOrigin: "0% 100%" }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2.4)" }, yes);
+    const rule = c("p_rule");
+    tl.fromTo("#pc-rule", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.3, ease: "expo.out" }, rule);
+    tl.to("#pc-rulec", { strokeDashoffset: 0, duration: 0.3, ease: "power2.out" }, rule + 0.2);
+    const win = c("p_win");
+    FF.riseWords(tl, "#pc-win", win, 0.09);
+    FF.burst(tl, "#pc-fx", c("p_chance"), { x: 580, y: 120, n: 60, kind: "confetti", r: 900, seed: 27, fall: 820 });
+    FF.burst(tl, "#pc-fx", c("p_chance") + 0.12, { x: 1500, y: 300, n: 40, kind: "confetti", r: 700, seed: 28, fall: 820 });
+
+    FF.whipOut(tl, "#pc-stage", 1, end);
+    window.__timelines["pc"] = tl;
+  </script>
+</template>
