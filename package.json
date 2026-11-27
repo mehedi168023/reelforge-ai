@@ -10,7 +10,8 @@
     "test": "vite build --mode mock --outDir dist-test && node tools/e2e.mjs",
     "desktop:dev": "node tools/desktop-dev.mjs",
     "desktop": "vite build && electron .",
-    "dist:win": "tsc --noEmit && vite build && electron-builder --win nsis portable"
+    "dist:win": "tsc --noEmit && node native/build.mjs && vite build && electron-builder --win nsis portable",
+    "engine": "node native/build.mjs"
   },
   "dependencies": {
     "ffmpeg-static": "^5.3.0",
@@ -72,6 +73,16 @@
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "native/engine/build",
+        "to": "engine",
+        "filter": [
+          "rfengine.exe",
+          "*.dll"
+        ]
+      }
+    ]
   }
 }

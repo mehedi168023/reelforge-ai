@@ -43,7 +43,8 @@ With `footage`, the page background must be transparent (`background:transparent
 - `snapshot` shows you real frames. Look at every scene before rendering. `render` makes the MP4 and can take minutes, so get the frames right first, and render only after a go-ahead.
 - `generate_voice` and `transcribe` spend the person's voice-provider credits, and only exist if set up. Generate only when the job asks or they agree, never over a supplied voice, and get the words right first, since regenerating costs again.
 - Without `transcribe`, you have no word timings: measure only the file's length with `media_info`, spread the words by letter count, and say the timing is estimated.
-- There's no cutting of footage here: a clip plays whole from its start. Ask the person to trim the clip first if a cut matters, and say the desktop app can cut.
+- Cutting footage: `project.json` can list `clips` instead of one `footage`: `[{"file":"input/a.mp4","track":0,"start":0,"in":2.5,"out":6},{"file":"input/b.mp4","track":0,"start":3.5,"in":0,"out":4},{"file":"input/c.mp4","track":1,"start":1,"in":0,"out":2,"scale":0.4,"x":0.75,"y":0.25,"volume":0}]`. `in`/`out` are seconds of the source; `start` is where the clip sits on the timeline. Track 0 is the main video; higher tracks draw on top (`scale` under 1 makes a picture-in-picture centred on `x`, `y`). Each clip's own sound plays at its `volume`. Use it to drop dead air, reorder takes or cut away; `grade` and `camera` apply to the whole result. Splitting and layering need the desktop app, which joins the clips with its native engine at render.
+- The person can also edit in the timeline. Scripts tagged `/*rf-text {...}*/` in index.html are captions they added: keep them, unless asked to change them.
 - You can't hear. Sound is placed by measurement, so the person should listen before publishing.
 - You can't watch a video from a link. If given a YouTube link, say so and ask for the file. Web tools read pages only.
 

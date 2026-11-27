@@ -5,3 +5,4 @@ test-output
 fairfightbd
 release
 dist-electron
+native/engine/build

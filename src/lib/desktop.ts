@@ -56,6 +56,13 @@ interface DesktopApi {
   importFile(id: string, src: string, name: string): Promise<{ name: string; converted: string | null }>;
   onImportProgress(fn: (p: ImportProgress) => void): () => void;
   audioOf(id: string, rel: string): Promise<string | null>;
+  /** Flattens edited clips into one cached video through the native engine; returns its project path. */
+  compose(id: string, job: { clips: unknown[]; width: number; height: number; fps: number; duration: number }): Promise<string>;
+  /** Peaks for drawing a sound's waveform, from the native engine. */
+  waveform(id: string, rel: string, points: number): Promise<number[]>;
+  /** Length in seconds of a media file. */
+  probe(id: string, rel: string): Promise<{ duration: number; width: number; height: number; hasAudio: boolean }>;
+  onEngineProgress(fn: (p: { id: string; fraction: number }) => void): () => void;
   detectEngines(): Promise<EngineInfo[]>;
   setTools(tools: unknown[]): Promise<void>;
   onToolCall(fn: (c: ToolCall) => void): () => void;

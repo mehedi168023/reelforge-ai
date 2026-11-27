@@ -1,14 +1,14 @@
-// Draws the app icon from public/favicon.svg into electron/icon.png and a multi-size electron/build/icon.ico.
+// Draws the app icon from public/logo.png into electron/icon.png and a multi-size electron/build/icon.ico.
 import fs from 'node:fs';
 import puppeteer from 'puppeteer-core';
 
-const svg = fs.readFileSync('public/favicon.svg', 'utf8');
+const src = `data:image/png;base64,${fs.readFileSync('public/logo.png').toString('base64')}`;
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
 const page = await browser.newPage();
 const sizes = [16, 24, 32, 48, 64, 128, 256, 512];
-const pngs = await page.evaluate(async (svg, sizes) => {
+const pngs = await page.evaluate(async (src, sizes) => {
   const img = new Image();
-  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  img.src = src;
   await img.decode();
   return sizes.map((s) => {
     const c = Object.assign(document.createElement('canvas'), { width: s, height: s });
@@ -17,7 +17,7 @@ const pngs = await page.evaluate(async (svg, sizes) => {
     ctx.drawImage(img, 0, 0, s, s);
     return c.toDataURL('image/png').split(',')[1];
   });
-}, svg, sizes);
+}, src, sizes);
 await browser.close();
 
 const bufs = pngs.map((b) => Buffer.from(b, 'base64'));

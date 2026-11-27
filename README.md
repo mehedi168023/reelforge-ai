@@ -14,8 +14,11 @@ The same app as a native window, with three things a browser can't do:
 npm install
 npm run desktop:dev   # live-reloading desktop app
 npm run desktop       # build the page, then open the desktop app
-npm run dist:win      # installer and portable .exe in release/
+npm run engine        # build the native C++ engine (native/build.mjs)
+npm run dist:win      # engine + installer and portable .exe in release/
 ```
+
+The native engine builds with clang (llvm-mingw), CMake and Ninja against an FFmpeg shared build. `native/build.mjs` finds them in `%LOCALAPPDATA%\ReelForgeDev` (unzipped there) and CMake/Ninja from `pip install cmake ninja`; set `RF_FFMPEG_ROOT` to use another FFmpeg.
 
 How it fits together:
 
@@ -26,6 +29,8 @@ How it fits together:
 | MCP | `electron/mcp-server.cjs`, `electron/mcp-bridge.cjs` | Localhost MCP endpoint; the bridge is the stdio server each CLI starts |
 | Media | `electron/media.cjs` | FFprobe check, GPU H.264 conversion, sound extraction |
 | Page side | `src/lib/desktop.ts` | The preload API, used by storage, the agent and the screens |
+| Native engine | `native/engine` (C++20, CMake) | `rfengine.exe`: joins clips on tracks (trim, split, layers, picture-in-picture, sound) with D3D11VA GPU decode and NVENC/Quick Sync/AMF encode; probe; waveforms |
+| Editor | `src/screens/Editor.tsx`, `src/lib/preview.ts`, `src/lib/pageEdit.ts` | Live player, multi-track timeline, caption editing |
 
 Antigravity keeps one global MCP list, so the first Antigravity job adds a `reelforge` entry to it (`agy mcp list` shows it). It points at the running app and does nothing while ReelForge is closed.
 

@@ -69,12 +69,27 @@ export interface CameraKey {
   dur: number;
 }
 
+/** One piece of video on the timeline: `file` from `in` to `out` (source seconds), placed at `start`. Higher tracks draw on top; `scale` under 1 makes a picture-in-picture centred on x, y. */
+export interface Clip {
+  file: string;
+  track: number;
+  start: number;
+  in: number;
+  out: number | null;
+  volume: number;
+  x: number;
+  y: number;
+  scale: number;
+}
+
 export interface ProjectConfig {
   width: number;
   height: number;
   fps: number;
   duration: number;
   footage: string | null;
+  /** Edited video on tracks. Empty means `footage` plays whole from 0. */
+  clips: Clip[];
   audio: AudioClip[];
   grade: Grade | null;
   camera: CameraKey[];
@@ -99,6 +114,20 @@ function parseGrade(g: unknown): Grade | null {
     vignette: num(o.vignette, 0, 0, 1),
   };
 }
+
+function parseClips(list: unknown): Clip[] {
+  return (Array.isArray(list) ? (list as Record<string, unknown>[]) : [])
+    .filter((c) => c && typeof c.file === 'string')
+    .map((c) => {
+      const inn = num(c.in, 0, 0, 36000);
+      const out = c.out === undefined || c.out === null ? null : num(c.out, inn + 1, inn + 0.04, 36000);
+      return { file: String(c.file), track: Math.round(num(c.track, 0, 0, 7)), start: num(c.start, 0, 0, 1800), in: inn, out, volume: num(c.volume, 1, 0, 2), x: num(c.x, 0.5, 0, 1), y: num(c.y, 0.5, 0, 1), scale: num(c.scale, 1, 0.1, 1) };
+    })
+    .sort((a, b) => a.track - b.track || a.start - b.start);
+}
+
+/** Whether the clips need the native engine to flatten them, rather than one file playing whole from 0. */
+export const needsCompose = (c: ProjectConfig) => c.clips.length > 1 || c.clips.some((k) => k.start > 0 || k.in > 0 || k.track > 0 || k.scale < 1 || k.volume !== 1 || k.out !== null);
 
 function parseCamera(list: unknown): { camera: CameraKey[]; shakes: { t: number; px: number }[] } {
   const camera: CameraKey[] = [];
@@ -197,11 +226,24 @@ export async function loadConfig(projectId: string): Promise<ProjectConfig> {
   if (!(duration > 0 && duration <= 1800)) throw new Error('duration must be between 0 and 1800 seconds.');
   if (!(fps >= 10 && fps <= 60) || !(width >= 240 && width <= 3840) || !(height >= 240 && height <= 3840)) throw new Error('width, height or fps is out of range.');
   const audio: AudioClip[] = (Array.isArray(o.audio) ? o.audio : []).map((a: Record<string, unknown>) => ({ file: String(a.file), start: Number(a.start ?? 0), volume: Number(a.volume ?? 1), trimStart: Number(a.trimStart ?? 0) }));
-  const footage: string | null = o.footage ? String(o.footage) : null;
-  for (const name of [...audio.map((a) => a.file), ...(footage ? [footage] : [])]) {
+  const clips = parseClips(o.clips);
+  // With clips, footage names the main clip (for older readers); the clips are what plays.
+  const footage: string | null = clips.length ? clips[0].file : o.footage ? String(o.footage) : null;
+  for (const name of new Set([...audio.map((a) => a.file), ...clips.map((c) => c.file), ...(footage ? [footage] : [])])) {
     if (!(await readMedia(projectId, name))) throw new Error(`${name} doesn't exist.`);
   }
-  return { width, height, fps, duration, footage, audio, grade: parseGrade(o.grade), ...parseCamera(o.camera) };
+  return { width, height, fps, duration, footage, clips, audio, grade: parseGrade(o.grade), ...parseCamera(o.camera) };
+}
+
+/**
+ * Edited clips become one video file (picture and sound) through the native engine, so the renderer below
+ * sees plain footage. A single untouched clip needs nothing.
+ */
+async function flatten(projectId: string, config: ProjectConfig, width: number, height: number): Promise<ProjectConfig> {
+  if (!needsCompose(config)) return config.clips.length ? { ...config, footage: config.clips[0].file, clips: [] } : config;
+  if (!desktop) throw new Error('Split, trimmed or layered clips export in the ReelForge desktop app.');
+  const file = await desktop.compose(projectId, { clips: config.clips, width, height, fps: config.fps, duration: config.duration });
+  return { ...config, footage: file, clips: [] };
 }
 
 // ---------- the film page, in a sealed frame ----------
@@ -266,6 +308,18 @@ const BRIDGE = `<script>(function(){
     }
     window.__tl.seek(keep,false);
     gs.forEach(function(g){if(g.on>=0){g.start=g.on;g.end=Math.min(total,g.off)}});
+    // Each line of text in a part, so the editor can offer them for editing.
+    function rows(h){
+      var seen=[],out=[],walk=document.createTreeWalker(h,NodeFilter.SHOW_TEXT);
+      for(var n=walk.nextNode();n;n=walk.nextNode()){
+        if(!n.nodeValue.trim())continue;
+        var b=n.parentElement;
+        while(b&&b!==h&&/^inline/.test(getComputedStyle(b).display))b=b.parentElement;
+        if(b&&seen.indexOf(b)<0){seen.push(b);var t=(b.textContent||'').replace(/\\s+/g,' ').trim();if(t&&out.indexOf(t)<0)out.push(t)}
+      }
+      return out;
+    }
+    gs.forEach(function(g,i){g.texts=rows(hosts[i])});
     // Parts that are only emoji or symbols (a rain, a burst) read as one block on the timeline.
     var out=[],fx=[];
     gs.forEach(function(g){if(/\\p{L}/u.test(g.label))out.push(g);else fx.push(g)});
@@ -273,7 +327,7 @@ const BRIDGE = `<script>(function(){
     var cur=null;
     fx.forEach(function(g){
       if(cur&&g.start<=cur.end+0.05){cur.end=Math.max(cur.end,g.end);if(cur.label.length<12&&cur.label.indexOf(g.label)<0)cur.label+=g.label}
-      else{cur={label:g.label||'effect',start:g.start,end:g.end};out.push(cur)}
+      else{cur={label:g.label||'effect',start:g.start,end:g.end,texts:[]};out.push(cur)}
     });
     out.forEach(function(g){delete g.on;delete g.off});
     return out.sort(function(a,b){return a.start-b.start});
@@ -509,18 +563,21 @@ export async function imageView(blob: Blob): Promise<Blob> {
 }
 
 // ---------- review frames ----------
+const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+
 export async function snapshots(projectId: string, times: number[]): Promise<Blob[]> {
-  const config = await loadConfig(projectId);
+  const loaded = await loadConfig(projectId);
+  const k = 960 / Math.max(loaded.width, loaded.height);
+  const width = Math.round(loaded.width * k);
+  const height = Math.round(loaded.height * k);
+  const z = maxZoom(loaded);
+  const config = await flatten(projectId, loaded, even(width * z), even(height * z));
   const source = new FrameSource(config);
   let footageInput: Input | undefined;
   try {
     await source.open(await buildPage(projectId, config));
-    const k = 960 / Math.max(config.width, config.height);
-    const width = Math.round(config.width * k);
-    const height = Math.round(config.height * k);
     const canvas = Object.assign(document.createElement('canvas'), { width, height });
     const ctx = canvas.getContext('2d')!;
-    const z = maxZoom(config);
     const opened = config.footage ? await openFootage((await readMedia(projectId, config.footage))!, Math.round(width * z), Math.round(height * z)) : null;
     footageInput = opened?.input;
     const footage = opened?.sink;
@@ -607,10 +664,11 @@ export class RenderStopped extends Error {}
 export async function renderVideo(projectId: string, shortSide: number, signal: AbortSignal, onProgress: (p: RenderProgress) => void): Promise<Blob> {
   const startedAt = Date.now();
   onProgress({ stage: 'audio', done: 0, total: 1, startedAt });
-  const config = await loadConfig(projectId);
-  const k = Math.min(1, shortSide / Math.min(config.width, config.height));
-  const width = Math.round((config.width * k) / 2) * 2;
-  const height = Math.round((config.height * k) / 2) * 2;
+  const loaded = await loadConfig(projectId);
+  const k = Math.min(1, shortSide / Math.min(loaded.width, loaded.height));
+  const width = Math.round((loaded.width * k) / 2) * 2;
+  const height = Math.round((loaded.height * k) / 2) * 2;
+  const config = await flatten(projectId, loaded, even(width * maxZoom(loaded)), even(height * maxZoom(loaded)));
   const codec = (await canEncodeVideo('avc', { width, height })) ? 'avc' : (await canEncodeVideo('vp9', { width, height })) ? 'vp9' : null;
   if (!codec) throw new Error("This browser can't encode video. Use a current version of Chrome or Edge.");
 

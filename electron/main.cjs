@@ -7,6 +7,7 @@ const fsp = fs.promises;
 const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const media = require('./media.cjs');
+const engine = require('./engine.cjs');
 const engines = require('./engines.cjs');
 const { startMcpServer } = require('./mcp-server.cjs');
 
@@ -204,7 +205,7 @@ function createWindow() {
 
 // ---------- IPC ----------
 function ipc() {
-  ipcMain.handle('app:info', async () => ({ root: ROOT, version: app.getVersion(), media: await media.info() }));
+  ipcMain.handle('app:info', async () => ({ root: ROOT, version: app.getVersion(), media: await media.info(), engine: await engine.version().catch((err) => ({ error: err.message })) }));
 
   ipcMain.handle('fs:put', async (_e, id, rel, data) => {
     const file = projectPath(id, rel);
@@ -248,6 +249,11 @@ function ipc() {
     const out = await media.extractAudio(src, path.join(projectDir(id), '.cache', `${rel.replace(/[\\/]/g, '_')}.m4a`));
     return out ? path.relative(projectDir(id), out).split(path.sep).join('/') : null;
   });
+
+  // The native C++ engine: multi-track composition, sound analysis, probing.
+  ipcMain.handle('engine:compose', (e, id, job) => engine.compose(projectDir(id), (rel) => projectPath(id, rel), job, (fraction) => !e.sender.isDestroyed() && e.sender.send('engine:progress', { id, fraction })));
+  ipcMain.handle('engine:waveform', (_e, id, rel, points) => engine.waveform(projectPath(id, rel), points));
+  ipcMain.handle('engine:probe', (_e, id, rel) => engine.probe(projectPath(id, rel)));
 
   ipcMain.handle('engines:detect', () => engines.detect());
 

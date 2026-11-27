@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
 import './desktop.css';
+import './editor-tracks.css';
 
 // The desktop app has its own look: neutral editor greys with the logo's cyan and pink.
 if ((globalThis as { rfDesktop?: unknown }).rfDesktop) document.documentElement.classList.add('desktop');

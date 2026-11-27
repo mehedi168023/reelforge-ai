@@ -20,8 +20,8 @@ export const sizeLabel = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB`
 
 export const statusLabel = (s: string) => ({ working: 'Working', done: 'Done', waiting: 'Needs you', error: 'Error', stopped: 'Stopped' })[s] ?? 'New';
 
-/** The app mark: a viewfinder around a play button, with an AI badge (public/favicon.svg). */
-export const Logo = ({ size }: { size: number }) => <img className="logo-mark" src="favicon.svg" width={size} height={size} alt="" draggable={false} />;
+/** The app mark (public/logo.png). */
+export const Logo = ({ size }: { size: number }) => <img className="logo-mark" src="logo.png" width={size} height={size} alt="" draggable={false} />;
 
 export const StatusDot = ({ status }: { status: string }) => <span className={`dot ${status}`} aria-hidden="true" />;
 
