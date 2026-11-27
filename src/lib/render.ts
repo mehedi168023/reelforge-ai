@@ -120,7 +120,7 @@ function parseCamera(list: unknown): { camera: CameraKey[]; shakes: { t: number;
 const easeInOut = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2);
 
 /** Where the camera is at time t: zoom, and the point of the frame it centres on. */
-function cameraAt(keys: CameraKey[], t: number) {
+export function cameraAt(keys: CameraKey[], t: number) {
   let state = { zoom: 1, x: 0.5, y: 0.5 };
   for (const k of keys) {
     if (k.t > t) break;
@@ -132,7 +132,7 @@ function cameraAt(keys: CameraKey[], t: number) {
 }
 
 /** A three-frame jolt that dies away, in output pixels. */
-function shakeAt(shakes: { t: number; px: number }[], t: number, fps: number) {
+export function shakeAt(shakes: { t: number; px: number }[], t: number, fps: number) {
   for (const s of shakes) {
     const f = Math.floor((t - s.t) * fps + 1e-6);
     if (f >= 0 && f < 4) {
@@ -230,8 +230,59 @@ const BRIDGE = `<script>(function(){
     for(var n=document.documentElement.firstChild;n;n=n.nextSibling)root.appendChild(n===document.body?copy(n):n.cloneNode(true));
     return new XMLSerializer().serializeToString(root);
   }
+  // The editor's live preview: the timeline plays in real time instead of being drawn frame by frame.
+  function live(d){try{if(d.play){window.__tl.timeScale(d.rate||1);window.__tl.play(d.t)}else window.__tl.pause(d.t)}catch(err){}}
+  // The page's parts and when each is on screen, for the editor's timeline.
+  function layers(){
+    var W=innerWidth,H=innerHeight,groups=new Map();
+    function host(el){
+      var top=el;while(top.parentElement&&top.parentElement!==document.body)top=top.parentElement;
+      if(top===el||!top.parentElement)return top;
+      // A full-page layer that holds many parts: each of its children is a part.
+      if(top.children.length>1&&top.offsetWidth>=W*0.95&&top.offsetHeight>=H*0.95){var c=el;while(c.parentElement&&c.parentElement!==top)c=c.parentElement;return c}
+      return top;
+    }
+    function name(el){var t=(el.textContent||'').replace(/\\s+/g,' ').trim();if(t)return t.slice(0,48);return el.id||(typeof el.className==='string'&&el.className.split(' ')[0])||el.tagName.toLowerCase()}
+    window.__tl.getChildren(true,true,false).forEach(function(tw){
+      var s=tw.startTime(),p=tw.parent;while(p&&p!==window.__tl){s+=p.startTime();p=p.parent}
+      var e=s+tw.duration();
+      (tw.targets()||[]).forEach(function(el){
+        if(!el||el.nodeType!==1||el===document.body||el===document.documentElement)return;
+        var h=host(el),g=groups.get(h);
+        if(!g)groups.set(h,{label:name(h),start:s,end:e});else{g.start=Math.min(g.start,s);g.end=Math.max(g.end,e)}
+      });
+    });
+    // When each part is really on screen: sample the timeline and look, rather than trust tween times.
+    var hosts=[],gs=[];groups.forEach(function(g,h){hosts.push(h);gs.push(g);g.on=-1;g.off=-1});
+    function shown(el){
+      var r=el.getBoundingClientRect();if(r.width<1||r.height<1||r.right<0||r.bottom<0||r.left>W||r.top>H)return false;
+      for(var e=el;e&&e.nodeType===1;e=e.parentElement){var s=getComputedStyle(e);if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)<0.03)return false}
+      return true;
+    }
+    var keep=window.__tl.time(),total=window.__tl.duration(),stepT=Math.max(0.1,total/600);
+    for(var t=0;t<=total+1e-6;t+=stepT){
+      window.__tl.seek(t,false);
+      for(var i=0;i<hosts.length;i++)if(shown(hosts[i])){if(gs[i].on<0)gs[i].on=t;gs[i].off=t+stepT}
+    }
+    window.__tl.seek(keep,false);
+    gs.forEach(function(g){if(g.on>=0){g.start=g.on;g.end=Math.min(total,g.off)}});
+    // Parts that are only emoji or symbols (a rain, a burst) read as one block on the timeline.
+    var out=[],fx=[];
+    gs.forEach(function(g){if(/\\p{L}/u.test(g.label))out.push(g);else fx.push(g)});
+    fx.sort(function(a,b){return a.start-b.start});
+    var cur=null;
+    fx.forEach(function(g){
+      if(cur&&g.start<=cur.end+0.05){cur.end=Math.max(cur.end,g.end);if(cur.label.length<12&&cur.label.indexOf(g.label)<0)cur.label+=g.label}
+      else{cur={label:g.label||'effect',start:g.start,end:g.end};out.push(cur)}
+    });
+    out.forEach(function(g){delete g.on;delete g.off});
+    return out.sort(function(a,b){return a.start-b.start});
+  }
   addEventListener('message',function(e){
-    var d=e.data;if(e.source!==parent||!d||d.type!=='seek')return;
+    var d=e.data;if(e.source!==parent||!d)return;
+    if(d.type==='live')return live(d);
+    if(d.type==='layers'){var l=[];try{l=layers()}catch(err){}send({type:'layers',id:d.id,layers:l,duration:window.__tl.duration()});return}
+    if(d.type!=='seek')return;
     try{
       window.__tl.seek(d.t,false);
       // Nothing moved since the last frame, so the last picture still holds.
@@ -277,7 +328,7 @@ async function replaceAsync(text: string, pattern: RegExp, make: (m: RegExpExecA
 }
 
 /** Puts scripts, fonts and images inside the page, because the sealed frame can't load anything. */
-async function buildPage(projectId: string, config: ProjectConfig): Promise<string> {
+export async function buildPage(projectId: string, config: ProjectConfig): Promise<string> {
   const file = await fileGet(projectId, 'index.html');
   if (!file) throw new Error('index.html is missing.');
   const clean = (p: string) => p.replace(/^\.\//, '');

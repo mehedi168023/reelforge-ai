@@ -43,7 +43,7 @@ const EventView = memo(function EventView({ event }: { event: FeedEvent }) {
   return <p className={`note ${event.kind === 'error' ? 'bad' : ''}`}>{event.text}</p>;
 });
 
-function RenderBar({ info }: { info: RenderProgress }) {
+export function RenderBar({ info }: { info: RenderProgress }) {
   const fraction = info.stage === 'frames' && info.total ? info.done / info.total : info.stage === 'finishing' ? 1 : null;
   let label = 'Mixing the sound';
   if (info.stage === 'finishing') label = 'Finishing the file';
@@ -61,7 +61,7 @@ function RenderBar({ info }: { info: RenderProgress }) {
   );
 }
 
-function VideoPanel({ projectId, name, outputs }: { projectId: string; name: string; outputs: string[] }) {
+export function VideoPanel({ projectId, name, outputs }: { projectId: string; name: string; outputs: string[] }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -121,18 +121,27 @@ export function ProjectScreen({ meta, onDeleted }: { meta: ProjectMeta; onDelete
   return <ProjectBody c={c} onDeleted={onDeleted} />;
 }
 
-function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => void }) {
+export function Conversation({ c }: { c: AgentController }) {
   useSyncExternalStore(c.subscribe, c.getVersion);
   const [box, setBox] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [confirming, setConfirming] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const feed = useRef<HTMLDivElement>(null);
   const stuck = useRef(true);
   const items = useMemo(() => group(c.events), [c.events]);
   const status = c.working ? 'working' : c.meta.status;
+
+  // Other parts of the app (the editor's "Ask AI" buttons) can put text in the box.
+  useEffect(() => {
+    const onDraft = (e: Event) => {
+      const d = (e as CustomEvent<{ id: string; text: string }>).detail;
+      if (d.id === c.meta.id) setBox(d.text);
+    };
+    addEventListener('rf-draft', onDraft);
+    return () => removeEventListener('rf-draft', onDraft);
+  }, [c]);
 
   // Follows new messages, unless the person has scrolled up to read.
   useLayoutEffect(() => {
@@ -183,6 +192,96 @@ function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => vo
   const quick = status === 'waiting' ? ['Approve and continue', 'Looks good. Go ahead.'] : status === 'done' ? ['What can be improved?', 'Go through the finished video again and tell me what can be improved.'] : status === 'error' || status === 'stopped' ? ['Continue', 'Continue from where you stopped.'] : null;
 
   return (
+  <div className="conversation">
+    <div
+      className="feed"
+      ref={feed}
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+      }}
+    >
+      {items.map((item, i) => (
+        <div className="feed-item" key={i}>
+          {item.kind === 'tools' ? <ToolBlock tools={item.tools} /> : <EventView event={item.event} />}
+        </div>
+      ))}
+      {c.liveText && <Markdown text={c.liveText} />}
+      {c.working && !c.liveText && !c.renderInfo && <div className="thinking" aria-label="Working"><i /><i /><i /></div>}
+    </div>
+    {importNote && <p className="note import-note" role="status">{importNote}</p>}
+    {quick && !c.working && (
+      <div className="quick">
+        <button className="btn small-btn" onClick={() => send(quick[1])}>{quick[0]}</button>
+      </div>
+    )}
+    <form
+      className={`composer ${dragging ? 'drag' : ''}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        send(box);
+      }}
+      onDragOver={(e) => {
+        if (c.working) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        if (!c.working) addFiles(e.dataTransfer.files);
+      }}
+    >
+      {files.length > 0 && (
+        <div className="attachments">
+          {files.map((f, i) => (
+            <span className="attach-chip" key={`${f.name}${i}`}>
+              <FileThumb file={f} />
+              <span className="attach-name">{f.name}</span>
+              <span className="attach-size">{sizeLabel(f.size)}</span>
+              <button type="button" className="attach-x" aria-label={`Remove ${f.name}`} onClick={() => setFiles((all) => all.filter((_, j) => j !== i))}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="composer-bar">
+        <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+        <button type="button" className="icon-btn attach-btn" aria-label="Attach files" title="Attach footage, voice, logo or screenshots" disabled={c.working} onClick={() => fileInput.current?.click()}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.6 1.6 0 0 1-2.3-2.3l7.8-7.8" />
+          </svg>
+        </button>
+        <textarea
+          rows={1}
+          aria-label="Reply"
+          placeholder="Reply, ask for a change, or attach a file"
+          value={box}
+          onChange={(e) => setBox(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              send(box);
+            }
+          }}
+        />
+        <button className="send" aria-label="Send" disabled={c.working || (!box.trim() && files.length === 0)}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 19V5M6 11l6-6 6 6" />
+          </svg>
+        </button>
+      </div>
+    </form>
+  </div>
+  );
+}
+
+function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => void }) {
+  useSyncExternalStore(c.subscribe, c.getVersion);
+  const [confirming, setConfirming] = useState(false);
+  const status = c.working ? 'working' : c.meta.status;
+
+  return (
     <div className={`project ${c.outputs.length ? 'has-video' : ''}`}>
       <header className="project-head">
         <BackLink label="Videos" />
@@ -215,88 +314,9 @@ function ProjectBody({ c, onDeleted }: { c: AgentController; onDeleted: () => vo
       {c.renderInfo && <RenderBar info={c.renderInfo} />}
       <div className="project-grid">
         {c.outputs.length > 0 && <VideoPanel projectId={c.meta.id} name={c.meta.name} outputs={c.outputs} />}
-        <div className="conversation">
-          <div
-            className="feed"
-            ref={feed}
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-            }}
-          >
-            {items.map((item, i) => (
-              <div className="feed-item" key={i}>
-                {item.kind === 'tools' ? <ToolBlock tools={item.tools} /> : <EventView event={item.event} />}
-              </div>
-            ))}
-            {c.liveText && <Markdown text={c.liveText} />}
-            {c.working && !c.liveText && !c.renderInfo && <div className="thinking" aria-label="Working"><i /><i /><i /></div>}
-          </div>
-          {importNote && <p className="note import-note" role="status">{importNote}</p>}
-          {quick && !c.working && (
-            <div className="quick">
-              <button className="btn small-btn" onClick={() => send(quick[1])}>{quick[0]}</button>
-            </div>
-          )}
-          <form
-            className={`composer ${dragging ? 'drag' : ''}`}
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(box);
-            }}
-            onDragOver={(e) => {
-              if (c.working) return;
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragging(false);
-              if (!c.working) addFiles(e.dataTransfer.files);
-            }}
-          >
-            {files.length > 0 && (
-              <div className="attachments">
-                {files.map((f, i) => (
-                  <span className="attach-chip" key={`${f.name}${i}`}>
-                    <FileThumb file={f} />
-                    <span className="attach-name">{f.name}</span>
-                    <span className="attach-size">{sizeLabel(f.size)}</span>
-                    <button type="button" className="attach-x" aria-label={`Remove ${f.name}`} onClick={() => setFiles((all) => all.filter((_, j) => j !== i))}>×</button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="composer-bar">
-              <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
-              <button type="button" className="icon-btn attach-btn" aria-label="Attach files" title="Attach footage, voice, logo or screenshots" disabled={c.working} onClick={() => fileInput.current?.click()}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.6 1.6 0 0 1-2.3-2.3l7.8-7.8" />
-                </svg>
-              </button>
-              <textarea
-                rows={1}
-                aria-label="Reply"
-                placeholder="Reply, ask for a change, or attach a file"
-                value={box}
-                onChange={(e) => setBox(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    send(box);
-                  }
-                }}
-              />
-              <button className="send" aria-label="Send" disabled={c.working || (!box.trim() && files.length === 0)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 19V5M6 11l6-6 6 6" />
-                </svg>
-              </button>
-            </div>
-          </form>
-        </div>
+        <Conversation c={c} />
       </div>
     </div>
   );
 }
+

@@ -468,7 +468,8 @@ export class AgentController {
             break;
           case 'error':
             failed = true;
-            if (!this.abort.signal.aborted) this.add({ kind: 'error', text: e.text });
+            // Some CLIs print the same problem as a message and again as the error result.
+            if (!this.abort.signal.aborted && this.events.at(-1)?.text.trim() !== e.text.trim()) this.add({ kind: 'error', text: e.text });
             break;
           case 'result':
             if (!e.ok) failed = true;
@@ -643,7 +644,31 @@ export class AgentController {
     }
   }
 
-  private async runRender(id: string): Promise<Block> {
+  /** The editor's Export button: renders straight away, without the AI. Returns the new file, or null. */
+  async exportVideo(shortSide: number): Promise<string | null> {
+    if (this.working) return null;
+    this.working = true;
+    this.abort = new AbortController();
+    this.meta.status = 'working';
+    this.notify();
+    let out: string | null = null;
+    try {
+      const block = await this.runRender('export', shortSide);
+      out = /renders\/video-\d+\.mp4/.exec(String(block.content))?.[0] ?? null;
+      this.add({ kind: 'notice', text: `Exported ${out ?? 'the video'}.` });
+    } catch (err) {
+      if (err instanceof RenderStopped || this.abort.signal.aborted) this.add({ kind: 'notice', text: 'Export stopped.' });
+      else this.add({ kind: 'error', text: `Export failed: ${err instanceof Error ? err.message : String(err)}` });
+    }
+    this.working = false;
+    await this.refreshOutputs();
+    this.meta.status = this.outputs.length ? 'done' : 'waiting';
+    await this.persist();
+    this.notify();
+    return out;
+  }
+
+  private async runRender(id: string, shortSide = settings.exportShortSide): Promise<Block> {
     this.add({ kind: 'tool', text: 'Rendering the video' });
     const ahead = renderQueue;
     let finished!: () => void;
@@ -655,7 +680,7 @@ export class AgentController {
       const n = this.outputs.reduce((max, p) => Math.max(max, Number(/video-(\d+)/.exec(p)?.[1] ?? 0)), 0) + 1;
       const out = `renders/video-${n}.mp4`;
       const started = Date.now();
-      const blob = await renderVideo(this.meta.id, settings.exportShortSide, this.abort.signal, (p) => {
+      const blob = await renderVideo(this.meta.id, shortSide, this.abort.signal, (p) => {
         this.renderInfo = p;
         this.notify();
       });

@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useState, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
 
 export const money = (v: number) => `$${v.toFixed(2)}`;
 
@@ -20,22 +20,8 @@ export const sizeLabel = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB`
 
 export const statusLabel = (s: string) => ({ working: 'Working', done: 'Done', waiting: 'Needs you', error: 'Error', stopped: 'Stopped' })[s] ?? 'New';
 
-export const Logo = ({ size }: { size: number }) => {
-  const id = useId();
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--accent-2)" />
-          <stop offset="0.55" stopColor="var(--accent)" />
-          <stop offset="1" stopColor="var(--lime)" />
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx="15" fill={`url(#${id})`} />
-      <path d="M24 17v30l25-15z" fill="var(--ink)" />
-    </svg>
-  );
-};
+/** The app mark: a viewfinder around a play button, with an AI badge (public/favicon.svg). */
+export const Logo = ({ size }: { size: number }) => <img className="logo-mark" src="favicon.svg" width={size} height={size} alt="" draggable={false} />;
 
 export const StatusDot = ({ status }: { status: string }) => <span className={`dot ${status}`} aria-hidden="true" />;
 

@@ -10,6 +10,8 @@ import { CONTENT_TYPES } from './lib/agent';
 import { SetupScreen, SettingsScreen } from './screens/Settings';
 import { NewVideoScreen } from './screens/NewVideo';
 import { ProjectScreen } from './screens/Project';
+import { EditorScreen } from './screens/Editor';
+import { HomeScreen } from './screens/Home';
 
 const useRoute = () => {
   const [route, setRoute] = useState(location.hash.slice(1) || '/');
@@ -87,6 +89,38 @@ export function App() {
   const projectId = route.startsWith('/p/') ? route.slice(3) : null;
   const project = projects.find((p) => p.id === projectId);
   const atList = route === '/';
+
+  // The desktop app is laid out like a video editor: a home screen, then a full-window editor per project.
+  if (desktop) {
+    if (route === '/new' || route === '/settings')
+      return (
+        <div className="desk-page">
+          {problem && <div className="banner">{problem}</div>}
+          {route === '/new' ? (
+            <NewVideoScreen
+              onCreated={async (meta) => {
+                await reload();
+                go(`/p/${meta.id}`);
+              }}
+            />
+          ) : (
+            <SettingsScreen />
+          )}
+        </div>
+      );
+    if (project)
+      return (
+        <EditorScreen
+          key={project.id}
+          meta={project}
+          onDeleted={async () => {
+            await reload();
+            go('/');
+          }}
+        />
+      );
+    return <HomeScreen projects={projects} />;
+  }
 
   return (
     <div className={`shell ${atList ? 'at-list' : 'at-detail'}`}>
