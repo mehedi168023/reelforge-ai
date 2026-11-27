@@ -11,6 +11,7 @@ import { SHARED_ASSETS, TRANSITIONS, mediaInfo, readMedia, videoFrames, type Tra
 import { addInputFiles, deleteProject, settings, type ProjectMeta } from '../lib/store';
 import { Logo, StatusPill } from '../ui';
 import { Conversation, RenderBar, VideoPanel } from './Project';
+import { BottomNav } from './Shell';
 
 type Raw = Record<string, any>;
 type Selection = { kind: 'camera' | 'audio' | 'layer' | 'clip' | 'transition'; index: number } | { kind: 'text'; id: string } | null;
@@ -1177,18 +1178,18 @@ function ExportDialog({ c, onClose }: { c: AgentController; onClose: () => void 
 }
 
 // ---------- the screen ----------
-export function EditorScreen({ meta, onDeleted }: { meta: ProjectMeta; onDeleted: () => void }) {
+export function EditorScreen({ meta, onDeleted, route = '/projects' }: { meta: ProjectMeta; onDeleted: () => void; route?: string }) {
   const [c, setC] = useState<AgentController | null>(null);
   useEffect(() => {
     AgentController.of(meta).then(setC);
   }, [meta]);
   if (!c) return <div className="ed" />;
-  return <Editor key={c.meta.id} c={c} onDeleted={onDeleted} />;
+  return <Editor key={c.meta.id} c={c} onDeleted={onDeleted} route={route} />;
 }
 
 type Snapshot = { raw?: string; html?: string };
 
-function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void }) {
+function Editor({ c, onDeleted, route }: { c: AgentController; onDeleted: () => void; route: string }) {
   useSyncExternalStore(c.subscribe, c.getVersion);
   const p = useMemo(() => new Preview(c.meta.id), [c]);
   useSyncExternalStore(p.subscribe, p.getShape);
@@ -1421,10 +1422,13 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
   return (
     <div className="ed">
       <header className="ed-top">
-        <a className="ed-home" href="#/" title="Home">
+        <a className="tb-back" href="#/projects" title="Back to projects" aria-label="Back">
           <Icon d={I.back} />
+        </a>
+        <a className="tb-brand" href="#/" title="Home">
           <Logo size={26} />
         </a>
+        <span className="tb-sep" />
         <h1 className="ed-title" title={c.meta.name}>{c.meta.name}</h1>
         <StatusPill status={status} />
         {c.working && (
@@ -1491,6 +1495,9 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
       <section className="ed-timeline">
         <Timeline p={p} raw={raw} locked={locked} selection={selection} select={select} edit={edit} projectId={id} texts={texts} onSplit={split} onDelete={remove} onAddText={() => setLeftTab('text')} />
       </section>
+      <div className="ed-nav">
+        <BottomNav route={route} compact />
+      </div>
       {exporting && <ExportDialog c={c} onClose={() => setExporting(false)} />}
     </div>
   );

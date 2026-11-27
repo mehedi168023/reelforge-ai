@@ -41,11 +41,12 @@ function Toggle({ title, hint, value, disabled, onChange }: { title: string; hin
   );
 }
 
-export function NewVideoScreen({ onCreated }: { onCreated: (meta: ProjectMeta) => void }) {
-  const [type, setType] = useState('edit');
-  const [brief, setBrief] = useState(CONTENT_TYPES.edit.brief);
+export function NewVideoScreen({ onCreated, initialType }: { onCreated: (meta: ProjectMeta) => void; initialType?: string }) {
+  const startType = initialType && CONTENT_TYPES[initialType] ? initialType : 'edit';
+  const [type, setType] = useState(startType);
+  const [brief, setBrief] = useState(CONTENT_TYPES[startType].brief);
   const [style, setStyle] = useState('auto');
-  const [aspect, setAspect] = useState('source');
+  const [aspect, setAspect] = useState(startType === 'edit' ? 'source' : '16:9');
   const [language, setLanguage] = useState('auto');
   const [name, setName] = useState('');
   const [files, setFiles] = useState<File[]>([]);

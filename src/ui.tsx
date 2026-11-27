@@ -29,7 +29,7 @@ export const StatusPill = ({ status }: { status: string }) => <span className={`
 
 export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className="section">
+    <section className="section" id={`set-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} data-title={title}>
       <h2>{title}</h2>
       {hint && <p className="hint">{hint}</p>}
       <div className="section-body">{children}</div>

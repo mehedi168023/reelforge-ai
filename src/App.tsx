@@ -11,7 +11,8 @@ import { SetupScreen, SettingsScreen } from './screens/Settings';
 import { NewVideoScreen } from './screens/NewVideo';
 import { ProjectScreen } from './screens/Project';
 import { EditorScreen } from './screens/Editor';
-import { HomeScreen } from './screens/Home';
+import { HomeScreen, ProjectsScreen } from './screens/Home';
+import { Shell, TopBar } from './screens/Shell';
 
 const useRoute = () => {
   const [route, setRoute] = useState(location.hash.slice(1) || '/');
@@ -84,42 +85,74 @@ export function App() {
   }, []);
 
   if (!ready) return <div className="boot" aria-label="Loading" />;
-  if (!hasKey) return <SetupScreen onDone={() => setHasKey(true)} />;
+  if (!hasKey)
+    return desktop ? (
+      <div className="dk setup-shell">
+        <TopBar title="Welcome" back={null} />
+        <main className="dk-body">
+          <SetupScreen onDone={() => setHasKey(true)} />
+        </main>
+      </div>
+    ) : (
+      <SetupScreen onDone={() => setHasKey(true)} />
+    );
 
   const projectId = route.startsWith('/p/') ? route.slice(3) : null;
   const project = projects.find((p) => p.id === projectId);
   const atList = route === '/';
 
   // The desktop app is laid out like a video editor: a home screen, then a full-window editor per project.
+  // The desktop app: a header with Back and a bottom navigation bar on every screen; a full-window editor per project.
   if (desktop) {
-    if (route === '/new' || route === '/settings')
-      return (
-        <div className="desk-page">
-          {problem && <div className="banner">{problem}</div>}
-          {route === '/new' ? (
-            <NewVideoScreen
-              onCreated={async (meta) => {
-                await reload();
-                go(`/p/${meta.id}`);
-              }}
-            />
-          ) : (
-            <SettingsScreen />
-          )}
-        </div>
-      );
+    const [path, query = ''] = route.split('?');
+    const params = new URLSearchParams(query);
+    const banner = problem && <div className="banner">{problem}</div>;
     if (project)
       return (
         <EditorScreen
           key={project.id}
           meta={project}
+          route={route}
           onDeleted={async () => {
             await reload();
-            go('/');
+            go('/projects');
           }}
         />
       );
-    return <HomeScreen projects={projects} />;
+    if (path === '/new')
+      return (
+        <Shell route={path} title="Create project" back="/">
+          {banner}
+          <NewVideoScreen
+            key={query}
+            initialType={params.get('type') ?? undefined}
+            onCreated={async (meta) => {
+              await reload();
+              go(`/p/${meta.id}`);
+            }}
+          />
+        </Shell>
+      );
+    if (path === '/settings')
+      return (
+        <Shell route={path} title="Settings" back="/">
+          {banner}
+          <SettingsScreen />
+        </Shell>
+      );
+    if (path === '/projects')
+      return (
+        <Shell route={path} title="Projects" back="/" wide>
+          {banner}
+          <ProjectsScreen projects={projects} />
+        </Shell>
+      );
+    return (
+      <Shell route="/" title={projectId ? "This project isn't here" : 'Home'} back={null} wide>
+        {banner}
+        <HomeScreen projects={projects} />
+      </Shell>
+    );
   }
 
   return (

@@ -141,6 +141,37 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** The desktop settings' side menu: one link per section, the one in view lit up. */
+function SettingsNav() {
+  const [items, setItems] = useState<{ id: string; title: string }[]>([]);
+  const [active, setActive] = useState('');
+  useEffect(() => {
+    const read = () => setItems([...document.querySelectorAll<HTMLElement>('.set-main .section')].map((el) => ({ id: el.id, title: el.dataset.title ?? '' })));
+    read();
+    const mo = new MutationObserver(read);
+    const main = document.querySelector('.set-main');
+    if (main) mo.observe(main, { childList: true });
+    const io = new IntersectionObserver((entries) => {
+      const seen = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (seen) setActive(seen.target.id);
+    }, { rootMargin: '-10% 0px -70% 0px' });
+    document.querySelectorAll('.set-main .section').forEach((el) => io.observe(el));
+    return () => {
+      mo.disconnect();
+      io.disconnect();
+    };
+  }, [items.length]);
+  return (
+    <nav className="set-nav" aria-label="Settings sections">
+      {items.map((i) => (
+        <button key={i.id} className={active === i.id ? 'on' : ''} onClick={() => document.getElementById(i.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          {i.title}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export function SettingsScreen() {
   const [, repaint] = useState(0);
   const refresh = () => repaint((n) => n + 1);
@@ -247,9 +278,11 @@ export function SettingsScreen() {
   };
 
   return (
-    <div className="page narrow">
-      <BackLink />
-      <h1>Settings</h1>
+    <div className={desktop ? 'set-layout' : 'page narrow'}>
+      {desktop && <SettingsNav />}
+      <div className={desktop ? 'set-main' : undefined}>
+      {!desktop && <BackLink />}
+      {!desktop && <h1>Settings</h1>}
 
       {desktop && (
         <Section title="AI engine" hint="Which AI makes your videos. CLIs on this PC use your own sign-in and plan, and get the same video tools through ReelForge.">
@@ -404,6 +437,7 @@ export function SettingsScreen() {
       ) : (
         <p className="footnote">Powered by Claude Opus 5.5. If that model is busy or declines, Anthropic may answer with a fallback model. Keys and videos stay in this browser, unencrypted, so don't save keys on a shared computer. Clearing this site's data deletes them.</p>
       )}
+      </div>
     </div>
   );
 }
