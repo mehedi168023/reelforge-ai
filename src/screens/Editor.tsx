@@ -6,14 +6,14 @@ import { AgentController } from '../lib/agent';
 import { fileGet, filePut } from '../lib/db';
 import { desktop, ENGINE_LABEL } from '../lib/desktop';
 import { TEXT_COLORS, TEXT_STYLES, putUserText, removeUserText, replaceText, userTexts, type TextStyle, type UserText } from '../lib/pageEdit';
-import { Preview, type Layer } from '../lib/preview';
-import { SHARED_ASSETS, mediaInfo, readMedia, videoFrames } from '../lib/render';
+import { Preview, spansOf, type Layer } from '../lib/preview';
+import { SHARED_ASSETS, TRANSITIONS, mediaInfo, readMedia, videoFrames, type TransitionType } from '../lib/render';
 import { addInputFiles, deleteProject, settings, type ProjectMeta } from '../lib/store';
 import { Logo, StatusPill } from '../ui';
 import { Conversation, RenderBar, VideoPanel } from './Project';
 
 type Raw = Record<string, any>;
-type Selection = { kind: 'camera' | 'audio' | 'layer' | 'clip'; index: number } | { kind: 'text'; id: string } | null;
+type Selection = { kind: 'camera' | 'audio' | 'layer' | 'clip' | 'transition'; index: number } | { kind: 'text'; id: string } | null;
 type EditRaw = (fn: (o: Raw) => void) => void;
 type EditHtml = (fn: (html: string) => string | null) => Promise<boolean>;
 
@@ -57,12 +57,74 @@ const useTick = (p: Preview) => useSyncExternalStore(p.subscribe, p.getVersion);
 
 // ---------- clips on tracks ----------
 /** A clip's length on the timeline. An open end uses the source's length (or the project length until it's known). */
-const clipLen = (c: Raw, p: Preview) => Math.max(0.04, (c.out ?? p.fileLength(c.file) ?? p.duration) - (c.in ?? 0));
+const clipLen = (c: Raw, p: Preview) => Math.max(0.04, ((c.out ?? p.fileLength(c.file) ?? p.duration) - (c.in ?? 0)) / (c.speed || 1));
 
 /** Gives a project whose footage plays whole an explicit clip list, so it can be cut. */
 function ensureClips(o: Raw, p: Preview) {
   if (Array.isArray(o.clips) && o.clips.length) return;
   o.clips = o.footage ? [{ file: o.footage, track: 0, start: 0, in: 0, out: r2(Math.min(p.fileLength(o.footage) ?? o.duration, o.duration)) }] : [];
+  // The AI timed its captions to this footage playing whole: from now on they follow the footage's own time.
+  if (o.footage && !o.captionSync) o.captionSync = { file: o.footage };
+}
+
+/** A short name for an edit, for the version history. */
+function describe(before: Raw, after: Raw): string {
+  const same = (k: string) => JSON.stringify(before[k] ?? null) === JSON.stringify(after[k] ?? null);
+  const bc: Raw[] = before.clips ?? [];
+  const ac: Raw[] = after.clips ?? [];
+  if (ac.length > bc.length) return bc.length && ac.length === bc.length + 1 && ac.some((c) => !bc.some((b) => b.file === c.file)) ? 'Add clip' : 'Split clip';
+  if (ac.length < bc.length) return 'Delete clip';
+  if (!same('clips')) {
+    if (ac.some((c, i) => JSON.stringify(c.transition ?? null) !== JSON.stringify(bc[i]?.transition ?? null))) return 'Transition';
+    if (ac.some((c, i) => (c.speed ?? 1) !== (bc[i]?.speed ?? 1))) return 'Speed';
+    return 'Trim or move clip';
+  }
+  if (!same('grade')) return 'Look';
+  if (!same('camera')) return 'Camera';
+  if (!same('audio')) return 'Sound';
+  return 'Edit';
+}
+
+const TRANSITION_LABEL: Record<TransitionType, string> = { dissolve: 'Dissolve', black: 'Dip to black', slide: 'Slide', wipe: 'Wipe', zoom: 'Zoom in' };
+
+/** Where the footage the captions follow sits on the timeline: [timeline start, end, source start, speed]. */
+function syncSegments(o: Raw, p: Preview): { a: number; b: number; src: number; k: number }[] {
+  const file = o.captionSync?.file;
+  if (!file || !Array.isArray(o.clips)) return [];
+  const main = o.clips.filter((c: Raw) => (c.track ?? 0) === 0).sort((x: Raw, y: Raw) => (x.start ?? 0) - (y.start ?? 0));
+  const out: { a: number; b: number; src: number; k: number }[] = [];
+  main.forEach((c: Raw, i: number) => {
+    if (c.file !== file) return;
+    const next = main[i + 1];
+    out.push({ a: c.start ?? 0, b: Math.min((c.start ?? 0) + clipLen(c, p), next ? next.start ?? 0 : Infinity), src: c.in ?? 0, k: c.speed || 1 });
+  });
+  return out;
+}
+
+/**
+ * After the main footage is cut, trimmed, reordered or sped up, camera moves and sounds placed on it move with
+ * it (or go, if their moment was cut out), just as the AI's captions do.
+ */
+function followFootage(before: Raw, after: Raw, p: Preview) {
+  if (!after.captionSync) return;
+  const oldSegs = syncSegments(before, p);
+  const newSegs = syncSegments(after, p);
+  if (!oldSegs.length || JSON.stringify(oldSegs) === JSON.stringify(newSegs)) return;
+  const move = (t: number): number | null => {
+    const g = oldSegs.find((x) => t >= x.a - 1e-3 && t < x.b - 1e-3);
+    if (!g) return t; // not over that footage: stays where it is
+    const src = g.src + (t - g.a) * g.k;
+    const n = newSegs.find((x) => src >= x.src - 1e-3 && src < x.src + (x.b - x.a) * x.k - 1e-3);
+    return n ? r2(n.a + (src - n.src) / n.k) : null;
+  };
+  if (Array.isArray(after.camera)) after.camera = after.camera.flatMap((k: Raw) => {
+    const t = move(Number(k.t) || 0);
+    return t === null ? [] : [{ ...k, t }];
+  });
+  if (Array.isArray(after.audio)) after.audio = after.audio.flatMap((a: Raw) => {
+    const t = move(Number(a.start) || 0);
+    return t === null ? [] : [{ ...a, start: t }];
+  });
 }
 
 /** The main track is magnetic, like other editors: its clips butt together from 0. Then the project ends where the last clip does. */
@@ -70,11 +132,14 @@ function settle(o: Raw, p: Preview) {
   const clips: Raw[] = o.clips ?? [];
   const main = clips.filter((c) => (c.track ?? 0) === 0).sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
   let t = 0;
-  for (const c of main) {
-    c.start = r2(t);
+  main.forEach((c, i) => {
+    // A transition overlaps this clip with the one before it.
+    if (i > 0 && c.transition) t -= Math.min(c.transition.dur ?? 0.5, clipLen(c, p) / 2, clipLen(main[i - 1], p) / 2);
+    else if (i === 0) delete c.transition;
+    c.start = r2(Math.max(0, t));
     c.track = 0;
-    t += clipLen(c, p);
-  }
+    t = c.start + clipLen(c, p);
+  });
   if (main.length) o.footage = main[0].file;
   const end = Math.max(0, ...clips.map((c) => (c.start ?? 0) + clipLen(c, p)));
   if (end > 0) o.duration = r2(end);
@@ -212,7 +277,7 @@ function Wave({ projectId, file }: { projectId: string; file: string }) {
 }
 
 // ---------- the timeline ----------
-function lanes(layers: Layer[], max = 3) {
+function lanes(layers: { start: number; end: number }[], max = 3) {
   const ends: number[] = [];
   return layers.map((l) => {
     let lane = ends.findIndex((e) => e <= l.start + 0.01);
@@ -293,7 +358,11 @@ function Timeline(props: { p: Preview; raw: Raw | null; locked: boolean; selecti
 
   const follow = (e: RPointerEvent, onMove: (ev: PointerEvent) => void, onUp: () => void) => {
     const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      // not a live pointer (e.g. a synthetic event); dragging still follows moves over the element
+    }
     const up = () => {
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', up);
@@ -334,13 +403,14 @@ function Timeline(props: { p: Preview; raw: Raw | null; locked: boolean; selecti
     if (locked) return;
     const c = clips[index];
     const len = clipLen(c, p);
-    const source = p.fileLength(c.file) ?? (c.in ?? 0) + len;
+    const sp = c.speed || 1;
+    const source = p.fileLength(c.file) ?? (c.in ?? 0) + len * sp;
     const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - box.left;
     const mode: 'move' | 'in' | 'out' = x < 8 ? 'in' : x > box.width - 8 ? 'out' : 'move';
     const s0 = c.start ?? 0;
     const in0 = c.in ?? 0;
-    const out0 = in0 + len;
+    const out0 = in0 + len * sp;
     const t0 = timeAt(e.clientX);
     const y0 = e.clientY;
     const track0 = c.track ?? 0;
@@ -355,10 +425,10 @@ function Timeline(props: { p: Preview; raw: Raw | null; locked: boolean; selecti
           const track = Math.max(0, Math.min(topTrack + 1, track0 + Math.round((y0 - ev.clientY) / ROW_VIDEO)));
           state = { ...state, start: Math.max(0, r2(s0 + dt)), track };
         } else if (mode === 'in') {
-          const d = Math.max(-in0, Math.min(dt, len - 0.1));
-          state = { ...state, in: r2(in0 + d), start: r2(Math.max(0, s0 + d)) };
+          const d = Math.max(-in0 / sp, Math.min(dt, len - 0.1));
+          state = { ...state, in: r2(in0 + d * sp), start: r2(Math.max(0, s0 + d)) };
         } else {
-          state = { ...state, out: r2(Math.max(in0 + 0.1, Math.min(source, out0 + dt))) };
+          state = { ...state, out: r2(Math.max(in0 + 0.1, Math.min(source, out0 + dt * sp))) };
         }
         setDrag(state);
       },
@@ -398,10 +468,16 @@ function Timeline(props: { p: Preview; raw: Raw | null; locked: boolean; selecti
   const step = pps > 160 ? 0.5 : pps > 60 ? 1 : pps > 25 ? 2 : 5;
   const ticks = [];
   for (let t = 0; t <= duration + 0.001; t += step) ticks.push(t);
-  const layerLanes = lanes(p.layers);
+  // The AI's parts follow the footage (one bar per stretch that survives the cuts); the person's captions stay put.
+  type Bar = { label: string; start: number; end: number; layer?: number; user?: UserText };
+  const bars: Bar[] = [];
+  p.layers.forEach((l, i) => spansOf(p.config?.map ?? null, l.start, l.end).forEach(([a, b]) => bars.push({ label: l.label, start: a, end: b, layer: i })));
+  texts.forEach((u) => bars.push({ label: u.text, start: u.t, end: u.end, user: u }));
+  bars.sort((a, b) => a.start - b.start);
+  const layerLanes = lanes(bars);
   const laneCount = Math.max(1, Math.min(3, Math.max(0, ...layerLanes) + 1));
   const inner = duration * pps + 200;
-  const isUser = (l: Layer) => texts.find((u) => l.texts.includes(u.text.trim()) || l.label === u.text.trim());
+  const mainSorted = clips.filter((c) => (c.track ?? 0) === 0).sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
 
   return (
     <div className="tl">
@@ -445,18 +521,18 @@ function Timeline(props: { p: Preview; raw: Raw | null; locked: boolean; selecti
           <div className="tl-row" style={{ height: 14 + laneCount * 26 }}>
             <div className="tl-head">Text & FX</div>
             <div className="tl-lane">
-              {p.layers.map((l, i) => {
-                const user = isUser(l);
-                const sel = user ? selection?.kind === 'text' && selection.id === user.id : selection?.kind === 'layer' && selection.index === i;
+              {bars.map((l, i) => {
+                const user = l.user;
+                const sel = user ? selection?.kind === 'text' && selection.id === user.id : selection?.kind === 'layer' && selection.index === l.layer;
                 return (
                   <button
                     key={i}
                     className={`tl-item tl-layer ${hasLetters(l.label) ? '' : 'fx'} ${user ? 'mine' : ''} ${sel ? 'sel' : ''}`}
                     style={{ left: l.start * pps, width: Math.max(6, (l.end - l.start) * pps), top: 7 + layerLanes[i] * 26 }}
-                    title={`${l.label} (${l.start.toFixed(2)}s to ${l.end.toFixed(2)}s)`}
+                    title={`${l.label} (${l.start.toFixed(2)}s to ${l.end.toFixed(2)}s)${user ? '' : p.config?.map ? ' · follows the footage' : ''}`}
                     onPointerDown={(e) => {
                       e.stopPropagation();
-                      select(user ? { kind: 'text', id: user.id } : { kind: 'layer', index: i });
+                      select(user ? { kind: 'text', id: user.id } : { kind: 'layer', index: l.layer! });
                       p.seek(l.start + 0.05);
                     }}
                   >
@@ -467,7 +543,7 @@ function Timeline(props: { p: Preview; raw: Raw | null; locked: boolean; selecti
             </div>
           </div>
           {videoTracks.map((track) => (
-            <div key={track} className={`tl-row tl-video-row ${track === 0 ? 'main' : ''}`} style={{ height: ROW_VIDEO }}>
+            <div key={track} className={`tl-row tl-video-row ${track === 0 ? 'is-main' : ''} ${track > topTrack ? 'spare' : ''}`} style={{ height: track > topTrack && drag?.kind !== 'clip' ? 24 : ROW_VIDEO }}>
               <div className="tl-head">{track === 0 ? 'Main video' : track > topTrack ? 'Overlay +' : `Overlay ${track}`}</div>
               <div className="tl-lane">
                 {clips.map((c, i) => {
@@ -476,22 +552,45 @@ function Timeline(props: { p: Preview; raw: Raw | null; locked: boolean; selecti
                   if (tr !== track) return null;
                   const start = d ? d.start : c.start ?? 0;
                   const inn = d ? d.in : c.in ?? 0;
-                  const len = d ? d.out - d.in : clipLen(c, p);
+                  const len = d ? (d.out - d.in) / (c.speed || 1) : clipLen(c, p);
                   return (
                     <div
                       key={i}
                       className={`tl-item tl-clip ${selection?.kind === 'clip' && selection.index === i ? 'sel' : ''}`}
                       style={{ left: start * pps, width: Math.max(12, len * pps) }}
-                      title={`${c.file} · ${inn.toFixed(2)}s to ${(inn + len).toFixed(2)}s of the source`}
+                      title={`${c.file} · ${inn.toFixed(2)}s to ${(inn + len * (c.speed || 1)).toFixed(2)}s of the source${(c.speed || 1) !== 1 ? ` · ${c.speed}×` : ''}`}
                       onPointerDown={(e) => dragClip(e, i)}
                     >
-                      <ClipStrip projectId={projectId} file={c.file} from={inn} to={inn + len} />
-                      <span className="tl-clip-name">{String(c.file).split('/').pop()}</span>
+                      <ClipStrip projectId={projectId} file={c.file} from={inn} to={inn + len * (c.speed || 1)} />
+                      <span className="tl-clip-name">
+                        {String(c.file).split('/').pop()}
+                        {(c.speed || 1) !== 1 && <b className="tl-speed"> {c.speed}×</b>}
+                      </span>
                       <span className="tl-handle l" />
                       <span className="tl-handle r" />
                     </div>
                   );
                 })}
+                {track === 0 &&
+                  mainSorted.slice(1).map((c) => {
+                    const i = clips.indexOf(c);
+                    const has = Boolean(c.transition);
+                    return (
+                      <button
+                        key={`t${i}`}
+                        className={`tl-item tl-trans ${has ? 'on' : ''} ${selection?.kind === 'transition' && selection.index === i ? 'sel' : ''}`}
+                        style={{ left: ((c.start ?? 0) + (has ? (c.transition.dur ?? 0.5) / 2 : 0)) * pps }}
+                        title={has ? `${TRANSITION_LABEL[c.transition.type as TransitionType] ?? c.transition.type}, ${c.transition.dur}s` : 'Add a transition'}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          if (!explicit) return;
+                          select({ kind: 'transition', index: i });
+                        }}
+                      >
+                        {has ? '⧓' : '+'}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           ))}
@@ -852,6 +951,51 @@ function PropsPanel(props: { raw: Raw | null; p: Preview; selection: Selection; 
     const l = p.layers[selection.index];
     return l ? <AiTextEditor layer={l} locked={locked} editHtml={props.editHtml} projectId={projectId} /> : null;
   }
+  if (selection.kind === 'transition') {
+    const k: Raw | undefined = raw.clips?.[selection.index];
+    if (!k) return null;
+    const tr: Raw | null = k.transition ?? null;
+    const setTr = (next: Raw | null) =>
+      edit((o) => {
+        const c = o.clips[selection.index];
+        if (next) c.transition = next;
+        else delete c.transition;
+        settle(o, p);
+      });
+    return (
+      <div className="ed-props">
+        <h3>Transition</h3>
+        <p className="hint">Into {String(k.file).split('/').pop()} from the clip before it.</p>
+        <div className="ed-trans-grid">
+          <button className={`ed-style ${!tr ? 'on' : ''}`} disabled={locked} onClick={() => setTr(null)}>
+            None
+          </button>
+          {TRANSITIONS.map((t) => (
+            <button key={t} className={`ed-style ${tr?.type === t ? 'on' : ''}`} disabled={locked} onClick={() => setTr({ type: t, dur: tr?.dur ?? 0.5 })}>
+              {TRANSITION_LABEL[t]}
+            </button>
+          ))}
+        </div>
+        {tr && <Slider label="Duration (s)" value={Number(tr.dur ?? 0.5)} min={0.1} max={2} step={0.05} disabled={locked} onChange={(v) => setTr({ ...tr, dur: r2(v) })} />}
+        {tr && (
+          <button
+            className="btn"
+            disabled={locked}
+            onClick={() =>
+              edit((o) => {
+                const main = o.clips.filter((c: Raw) => (c.track ?? 0) === 0).sort((a: Raw, b: Raw) => (a.start ?? 0) - (b.start ?? 0));
+                main.slice(1).forEach((c: Raw) => (c.transition = { ...tr }));
+                settle(o, p);
+              })
+            }
+          >
+            Use on every cut
+          </button>
+        )}
+        <p className="hint">The two clips overlap for the transition, so the video gets a little shorter.</p>
+      </div>
+    );
+  }
   if (selection.kind === 'clip') {
     const list: Raw[] = Array.isArray(raw.clips) && raw.clips.length ? raw.clips : raw.footage ? [{ file: raw.footage, track: 0, start: 0, in: 0, out: null }] : [];
     const k = list[selection.index];
@@ -869,8 +1013,16 @@ function PropsPanel(props: { raw: Raw | null; p: Preview; selection: Selection; 
         <h3>{overlay ? `Overlay clip (track ${k.track})` : 'Main clip'}</h3>
         <p className="ed-quote">{String(k.file).split('/').pop()}</p>
         <p className="hint">
-          Uses {Number(k.in ?? 0).toFixed(2)}s to {(Number(k.in ?? 0) + len).toFixed(2)}s of the source, at {Number(k.start ?? 0).toFixed(2)}s. Drag its edges on the timeline to trim.
+          Uses {Number(k.in ?? 0).toFixed(2)}s to {(Number(k.in ?? 0) + len * (k.speed || 1)).toFixed(2)}s of the source, at {Number(k.start ?? 0).toFixed(2)}s. Drag its edges on the timeline to trim.
         </p>
+        <Slider label="Speed" value={Number(k.speed ?? 1)} min={0.25} max={4} step={0.05} disabled={locked} onChange={(v) => set('speed', r2(v))} format={(v) => `${v.toFixed(2)}×`} />
+        <div className="ed-presets">
+          {[0.5, 1, 1.5, 2, 3].map((v) => (
+            <button key={v} disabled={locked} className={Number(k.speed ?? 1) === v ? 'on' : ''} onClick={() => set('speed', v)}>
+              {v}×
+            </button>
+          ))}
+        </div>
         <Slider label="Volume" value={Number(k.volume ?? 1)} min={0} max={1.5} step={0.01} disabled={locked} onChange={(v) => set('volume', r2(v))} />
         {overlay && (
           <>
@@ -919,6 +1071,39 @@ function PropsPanel(props: { raw: Raw | null; p: Preview; selection: Selection; 
           {item.ease !== 'cut' && <Slider label="Duration (s)" value={Number(item.dur ?? 0.45)} min={0.1} max={6} step={0.05} disabled={locked} onChange={(v) => set('dur', v)} />}
         </>
       )}
+    </div>
+  );
+}
+
+const ago = (ms: number) => {
+  const sec = Math.round((Date.now() - ms) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return `${Math.round(sec / 60)} min ago`;
+  if (sec < 86400) return `${Math.round(sec / 3600)} h ago`;
+  return new Date(ms).toLocaleString();
+};
+
+/** Saved versions of the project (SQLite), newest first. */
+function HistoryPanel({ projectId, version, locked, onRestore }: { projectId: string; version: number; locked: boolean; onRestore: (id: number) => void }) {
+  const [rows, setRows] = useState<{ id: number; at: number; label: string }[]>([]);
+  useEffect(() => {
+    void desktop?.historyList(projectId).then(setRows);
+  }, [projectId, version]);
+  return (
+    <div className="ed-history">
+      <h3>Versions</h3>
+      <p className="hint">Every edit and every AI turn is saved in the project database. Restoring keeps the current state as a version too.</p>
+      {rows.map((r, i) => (
+        <div key={r.id} className={`ed-hrow ${i === 0 ? 'now' : ''}`}>
+          <span className="ed-hdot" />
+          <span className="ed-htext">
+            <strong>{r.label}</strong>
+            <span className="hint">{ago(r.at)}</span>
+          </span>
+          {i === 0 ? <span className="ed-badge">Current</span> : <button className="btn small-btn" disabled={locked} onClick={() => onRestore(r.id)}>Restore</button>}
+        </div>
+      ))}
+      {rows.length === 0 && <p className="hint">No versions yet.</p>}
     </div>
   );
 }
@@ -1010,7 +1195,7 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
   const [raw, setRaw] = useState<Raw | null>(null);
   const [html, setHtml] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
-  const [rightTab, setRightTab] = useState<'ai' | 'adjust' | 'props'>('ai');
+  const [rightTab, setRightTab] = useState<'ai' | 'adjust' | 'props' | 'history'>('ai');
   const [leftTab, setLeftTab] = useState<'media' | 'text' | 'audio' | 'exports'>('media');
   const [exporting, setExporting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1020,11 +1205,42 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
   const id = c.meta.id;
   const texts = useMemo(() => (html ? userTexts(html) : []), [html]);
 
+  // Version history in the project database: a version after each edit (a burst of slider moves is one) and
+  // after each AI turn.
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const pending = useRef<{ label: string; timer: number } | null>(null);
+  const record = useCallback(
+    async (label: string) => {
+      if (!desktop) return;
+      const added = await desktop.historyAdd(id, label, await readText(id, 'project.json'), await readText(id, 'index.html'));
+      if (added) setHistoryVersion((n) => n + 1);
+    },
+    [id],
+  );
+  const recordSoon = useCallback(
+    (label: string) => {
+      if (pending.current) clearTimeout(pending.current.timer);
+      pending.current = {
+        label,
+        timer: window.setTimeout(() => {
+          pending.current = null;
+          void record(label);
+        }, 1200),
+      };
+    },
+    [record],
+  );
+
   const reload = useCallback(async () => {
     setRaw(await readRaw(id));
     setHtml(await readText(id, 'index.html'));
     await p.load();
   }, [id, p]);
+
+  // The state the project opens in is a version too, so there's always something to go back to.
+  useEffect(() => {
+    void record('Opened');
+  }, [record]);
 
   useEffect(() => {
     void reload();
@@ -1034,9 +1250,9 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
   // When the AI finishes a turn, show what it made.
   const wasWorking = useRef(c.working);
   useEffect(() => {
-    if (wasWorking.current && !c.working) void reload();
+    if (wasWorking.current && !c.working) void reload().then(() => record(`AI: ${ENGINE_LABEL[settings.engine] ?? 'AI'} turn`));
     wasWorking.current = c.working;
-  }, [c.working, reload]);
+  }, [c.working, reload, record]);
 
   const edit: EditRaw = useCallback(
     (fn) => {
@@ -1045,10 +1261,15 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
       if (undo.current.length > 100) undo.current.shift();
       const next = JSON.parse(JSON.stringify(raw));
       fn(next);
+      followFootage(raw, next, p);
       setRaw(next);
-      void writeRaw(id, next).then(() => p.reloadConfig());
+      const label = describe(raw, next);
+      void writeRaw(id, next).then(() => {
+        recordSoon(label);
+        return p.reloadConfig();
+      });
     },
-    [raw, c, p, id],
+    [raw, c, p, id, recordSoon],
   );
 
   const editHtml: EditHtml = useCallback(
@@ -1059,10 +1280,11 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
       undo.current.push({ html });
       setHtml(next);
       await writeHtml(id, next);
+      recordSoon('Text');
       await p.reloadPage();
       return true;
     },
-    [html, c, p, id],
+    [html, c, p, id, recordSoon],
   );
 
   const undoLast = useCallback(async () => {
@@ -1081,6 +1303,23 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
       await p.reloadPage();
     }
   }, [c, p, id]);
+
+  /** Brings back a saved version; the state before it is saved first, so a restore can be undone too. */
+  const restore = useCallback(
+    async (hid: number) => {
+      if (!desktop || c.working) return;
+      const v = await desktop.historyGet(hid);
+      if (!v || v.project !== id) return;
+      await record('Before restore');
+      undo.current.push({ raw: raw ? JSON.stringify(raw) : undefined, html: html ?? undefined });
+      if (v.projectJson !== null) await filePut(id, 'project.json', new Blob([v.projectJson], { type: 'application/json' }));
+      if (v.indexHtml !== null) await writeHtml(id, v.indexHtml);
+      setSelection(null);
+      await reload();
+      await record('Restored a version');
+    },
+    [c, id, raw, html, record, reload],
+  );
 
   const select = (s: Selection) => {
     setSelection(s);
@@ -1108,9 +1347,11 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
       const sel = selection?.kind === 'clip' ? o.clips[selection.index] : null;
       const k: Raw | undefined = sel && pick(sel) ? sel : o.clips.find((x: Raw) => (x.track ?? 0) === 0 && pick(x));
       if (!k) return;
-      const cut = r2((k.in ?? 0) + (t - (k.start ?? 0)));
-      const end = r2((k.in ?? 0) + clipLen(k, p));
-      const b = { ...k, start: r2(t), in: cut, out: end };
+      const sp = k.speed || 1;
+      const cut = r2((k.in ?? 0) + (t - (k.start ?? 0)) * sp);
+      const end = r2((k.in ?? 0) + clipLen(k, p) * sp);
+      const b: Raw = { ...k, start: r2(t), in: cut, out: end };
+      delete b.transition;
       k.out = cut;
       o.clips.splice(o.clips.indexOf(k) + 1, 0, b);
       settle(o, p);
@@ -1122,6 +1363,14 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
     if (!selection || c.working) return;
     if (selection.kind === 'text') return dropText(selection.id);
     if (selection.kind === 'layer') return;
+    if (selection.kind === 'transition') {
+      edit((o) => {
+        if (o.clips?.[selection.index]) delete o.clips[selection.index].transition;
+        settle(o, p);
+      });
+      setSelection(null);
+      return;
+    }
     if (selection.kind === 'clip') {
       edit((o) => {
         ensureClips(o, p);
@@ -1161,6 +1410,10 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
   const right: ReactNode =
     rightTab === 'ai' ? (
       <Conversation c={c} />
+    ) : rightTab === 'history' ? (
+      <div className="ed-panel-body">
+        <HistoryPanel projectId={id} version={historyVersion} locked={locked} onRestore={(hid) => void restore(hid)} />
+      </div>
     ) : (
       <div className="ed-panel-body">{rightTab === 'adjust' ? <AdjustPanel raw={raw} locked={locked} edit={edit} /> : <PropsPanel raw={raw} p={p} selection={selection} locked={locked} edit={edit} editHtml={editHtml} projectId={id} texts={texts} putText={putText} dropText={dropText} />}</div>
     );
@@ -1230,6 +1483,7 @@ function Editor({ c, onDeleted }: { c: AgentController; onDeleted: () => void })
             ['ai', 'AI'],
             ['adjust', 'Adjust'],
             ['props', 'Properties'],
+            ...(desktop ? [['history', 'History'] as ['history', string]] : []),
           ]}
         />
         {right}

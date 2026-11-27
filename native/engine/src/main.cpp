@@ -3,7 +3,8 @@
 //   rfengine probe <file>                 length, size and streams of a media file
 //   rfengine waveform <file> <points>     loudness peaks for drawing a sound on the timeline
 //   rfengine compose <job.json>           flattens video clips on tracks (trims, layers, picture-in-picture)
-//                                         and their sound into one MP4, decoding on the GPU (D3D11VA) and
+//                                         and their sound into one MP4, with speed changes (pitch kept) and
+//                                         transitions between main-track clips, decoding on the GPU (D3D11VA) and
 //                                         encoding with NVENC, Quick Sync or AMF when the PC has one
 //
 // Replies are JSON, one object per line on stdout: {"progress":0.42} while working, then {"ok":true,...} or
@@ -11,6 +12,9 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 #include <libavformat/avformat.h>
 #include <libavutil/display.h>
 #include <libavutil/hwcontext.h>
@@ -220,6 +224,70 @@ std::vector<float> decodeAudio(const std::string& path, double from, double len)
   return out;
 }
 
+/** Changes the speed of 48 kHz stereo float sound without changing its pitch (FFmpeg's atempo filter). */
+std::vector<float> stretch(const std::vector<float>& in, double speed) {
+  if (std::fabs(speed - 1) < 1e-3 || in.empty()) return in;
+  std::string chain;
+  double s = speed;
+  while (s > 2.0) {
+    chain += "atempo=2.0,";
+    s /= 2.0;
+  }
+  while (s < 0.5) {
+    chain += "atempo=0.5,";
+    s /= 0.5;
+  }
+  chain += "atempo=" + json::num(s) + ",aformat=sample_fmts=flt:channel_layouts=stereo:sample_rates=48000";
+  AVFilterGraph* g = avfilter_graph_alloc();
+  std::unique_ptr<AVFilterGraph, void (*)(AVFilterGraph*)> guard(g, [](AVFilterGraph* x) { avfilter_graph_free(&x); });
+  AVFilterContext *src = nullptr, *sink = nullptr;
+  check(avfilter_graph_create_filter(&src, avfilter_get_by_name("abuffer"), "in", "time_base=1/48000:sample_rate=48000:sample_fmt=flt:channel_layout=stereo", nullptr, g), "Sound speed");
+  check(avfilter_graph_create_filter(&sink, avfilter_get_by_name("abuffersink"), "out", nullptr, nullptr, g), "Sound speed");
+  AVFilterInOut* outputs = avfilter_inout_alloc();
+  AVFilterInOut* inputs = avfilter_inout_alloc();
+  outputs->name = av_strdup("in");
+  outputs->filter_ctx = src;
+  outputs->pad_idx = 0;
+  outputs->next = nullptr;
+  inputs->name = av_strdup("out");
+  inputs->filter_ctx = sink;
+  inputs->pad_idx = 0;
+  inputs->next = nullptr;
+  int r = avfilter_graph_parse_ptr(g, chain.c_str(), &inputs, &outputs, nullptr);
+  avfilter_inout_free(&inputs);
+  avfilter_inout_free(&outputs);
+  check(r, "Sound speed");
+  check(avfilter_graph_config(g, nullptr), "Sound speed");
+  std::vector<float> out;
+  out.reserve(static_cast<size_t>(in.size() / speed) + 4096);
+  FramePtr f = newFrame(), o = newFrame();
+  auto pull = [&]() {
+    while (av_buffersink_get_frame(sink, o.get()) >= 0) {
+      const float* d = reinterpret_cast<const float*>(o->data[0]);
+      out.insert(out.end(), d, d + static_cast<size_t>(o->nb_samples) * 2);
+      av_frame_unref(o.get());
+    }
+  };
+  const size_t frames = in.size() / 2;
+  for (size_t pos = 0; pos < frames; pos += 4096) {
+    int n = static_cast<int>(std::min<size_t>(4096, frames - pos));
+    av_frame_unref(f.get());
+    f->nb_samples = n;
+    f->format = AV_SAMPLE_FMT_FLT;
+    f->sample_rate = 48000;
+    AVChannelLayout stereo = AV_CHANNEL_LAYOUT_STEREO;
+    av_channel_layout_copy(&f->ch_layout, &stereo);
+    f->pts = static_cast<int64_t>(pos);
+    check(av_frame_get_buffer(f.get(), 0), "Sound speed");
+    std::memcpy(f->data[0], in.data() + pos * 2, static_cast<size_t>(n) * 2 * sizeof(float));
+    check(av_buffersrc_add_frame(src, f.get()), "Sound speed");
+    pull();
+  }
+  (void)av_buffersrc_add_frame(src, nullptr);
+  pull();
+  return out;
+}
+
 int cmdWaveform(const std::string& path, int points) {
   std::vector<float> s = decodeAudio(path, 0, -1);
   points = std::clamp(points, 8, 20000);
@@ -241,7 +309,15 @@ int cmdWaveform(const std::string& path, int points) {
 struct ClipJob {
   std::string path;
   int track = 0;
-  double start = 0, in = 0, out = -1, volume = 1, x = 0.5, y = 0.5, scale = 1;
+  double start = 0, in = 0, out = -1, volume = 1, x = 0.5, y = 0.5, scale = 1, speed = 1;
+  std::string transition;  // how it enters from the main-track clip before it: dissolve, black, slide, wipe, zoom
+  double transitionDur = 0;
+};
+
+/** How a clip is drawn at one moment: faded, darkened, shifted, partly revealed or zoomed. */
+struct Look {
+  double alpha = 1, bright = 1, dx = 0, wipe = 1, zoom = 1;
+  bool hidden = false;
 };
 
 /** Reads one clip's video forward in time, keeping the frame for the asked moment as BGRA in display orientation. */
@@ -258,7 +334,7 @@ class ClipReader {
     rotation_ = rotationOf(stream_);
     double total = streamSeconds(fmt_.get(), vi_);
     double out = job.out > 0 ? std::min(job.out, total > 0 ? total : job.out) : total;
-    length = std::max(0.0, out - job.in);
+    length = std::max(0.0, out - job.in) / job.speed;
     try {
       dec_ = openDecoder(stream_, true);
     } catch (...) {
@@ -274,7 +350,7 @@ class ClipReader {
 
   /** The BGRA picture (display orientation) for timeline time t, or nullptr if the clip has no frame there. */
   const std::vector<uint8_t>* frameAt(double t, int& w, int& h) {
-    double target = job.in + (t - job.start);
+    double target = job.in + (t - job.start) * job.speed;
     if (!started_ || target < lastPts_ - 0.25) seekTo(target);
     // Decode until the next frame would be later than the target.
     while (!eof_ && (!have_ || nextPts_ <= target + 1e-4)) {
@@ -415,8 +491,17 @@ class Blitter {
   ~Blitter() {
     if (sws_) sws_freeContext(sws_);
   }
-  void cover(const std::vector<uint8_t>& src, int sw, int sh, uint8_t* canvas, int cw, int ch, int x, int y, int w, int h) {
-    if (w <= 0 || h <= 0) return;
+  void cover(const std::vector<uint8_t>& src, int sw, int sh, uint8_t* canvas, int cw, int ch, int x, int y, int w, int h, const Look& look = Look()) {
+    if (w <= 0 || h <= 0 || look.hidden) return;
+    const int boxX = x, boxW = w;
+    if (std::fabs(look.zoom - 1) > 1e-3) {
+      int zw = static_cast<int>(std::lround(w * look.zoom)), zh = static_cast<int>(std::lround(h * look.zoom));
+      x -= (zw - w) / 2;
+      y -= (zh - h) / 2;
+      w = zw;
+      h = zh;
+    }
+    x += static_cast<int>(std::lround(look.dx));
     double k = std::max(double(w) / sw, double(h) / sh);
     int cropW = std::clamp(static_cast<int>(std::lround(w / k)), 1, sw);
     int cropH = std::clamp(static_cast<int>(std::lround(h / k)), 1, sh);
@@ -429,12 +514,23 @@ class Blitter {
     uint8_t* d[4] = {buf_.data(), nullptr, nullptr, nullptr};
     int dls[4] = {w * 4, 0, 0, 0};
     sws_scale(sws_, s, sls, 0, cropH, d, dls);
+    const bool plain = look.alpha >= 0.999 && look.bright >= 0.999;
+    const int wipeEnd = boxX + static_cast<int>(std::lround(boxW * std::clamp(look.wipe, 0.0, 1.0)));
+    const int a = static_cast<int>(std::lround(std::clamp(look.alpha, 0.0, 1.0) * 256));
+    const int b = static_cast<int>(std::lround(std::clamp(look.bright, 0.0, 1.0) * 256));
     for (int row = 0; row < h; row++) {
       int ty = y + row;
       if (ty < 0 || ty >= ch) continue;
-      int x0 = std::max(0, x), x1 = std::min(cw, x + w);
+      int x0 = std::max(0, x), x1 = std::min({cw, x + w, wipeEnd});
       if (x1 <= x0) continue;
-      std::memcpy(canvas + (static_cast<size_t>(ty) * cw + x0) * 4, buf_.data() + (static_cast<size_t>(row) * w + (x0 - x)) * 4, static_cast<size_t>(x1 - x0) * 4);
+      uint8_t* d = canvas + (static_cast<size_t>(ty) * cw + x0) * 4;
+      const uint8_t* s = buf_.data() + (static_cast<size_t>(row) * w + (x0 - x)) * 4;
+      if (plain) {
+        std::memcpy(d, s, static_cast<size_t>(x1 - x0) * 4);
+        continue;
+      }
+      for (int i = 0; i < (x1 - x0) * 4; i += 4)
+        for (int k = 0; k < 3; k++) d[i + k] = static_cast<uint8_t>((d[i + k] * (256 - a) + ((s[i + k] * b) >> 8) * a) >> 8);
     }
   }
 
@@ -519,26 +615,46 @@ int cmdCompose(const std::string& jobPath) {
     j.x = c["x"].num(0.5);
     j.y = c["y"].num(0.5);
     j.scale = std::clamp(c["scale"].num(1), 0.05, 1.0);
+    j.speed = std::clamp(c["speed"].num(1), 0.25, 4.0);
+    if (c["transition"].isObj()) {
+      j.transition = c["transition"]["type"].str();
+      j.transitionDur = std::clamp(c["transition"]["dur"].num(0.5), 0.05, 5.0);
+    }
     clips.push_back(std::make_unique<ClipReader>(j));
   }
   // Lower tracks first, so higher tracks draw over them.
-  std::stable_sort(clips.begin(), clips.end(), [](auto& a, auto& b) { return a->job.track < b->job.track; });
+  std::stable_sort(clips.begin(), clips.end(), [](auto& a, auto& b) { return a->job.track != b->job.track ? a->job.track < b->job.track : a->job.start < b->job.start; });
+  // The main track's transitions: which clip each one enters from.
+  std::vector<int> prevMain(clips.size(), -1);
+  for (size_t i = 1; i < clips.size(); i++)
+    if (clips[i]->job.track == 0 && clips[i - 1]->job.track == 0) prevMain[i] = static_cast<int>(i - 1);
 
   // Sound: each clip's own audio, trimmed and placed, mixed at 48 kHz stereo.
   const int64_t totalSamples = static_cast<int64_t>(std::llround(duration * 48000));
   std::vector<float> mix(static_cast<size_t>(totalSamples) * 2, 0.0f);
   bool anySound = false;
-  for (auto& c : clips) {
+  for (size_t ci = 0; ci < clips.size(); ci++) {
+    auto& c = clips[ci];
     if (c->job.volume <= 0.001 || c->length <= 0) continue;
-    std::vector<float> a = decodeAudio(c->job.path, c->job.in, c->length);
+    std::vector<float> a = stretch(decodeAudio(c->job.path, c->job.in, c->length * c->job.speed), c->job.speed);
     if (a.empty()) continue;
     anySound = true;
+    // Crossfade under transitions: fade in when this clip enters with one, out when the next clip does.
+    double fadeIn = c->job.track == 0 && prevMain[ci] >= 0 && !c->job.transition.empty() ? c->job.transitionDur : 0;
+    double fadeOut = 0;
+    for (size_t k = 0; k < clips.size(); k++)
+      if (prevMain[k] == static_cast<int>(ci) && !clips[k]->job.transition.empty()) fadeOut = clips[k]->job.transitionDur;
+    const double lenSec = a.size() / 2 / 48000.0;
     int64_t at = static_cast<int64_t>(std::llround(c->job.start * 48000));
     for (size_t i = 0; i + 1 < a.size(); i += 2) {
       int64_t s = at + static_cast<int64_t>(i / 2);
       if (s < 0 || s >= totalSamples) continue;
-      mix[2 * s] += a[i] * static_cast<float>(c->job.volume);
-      mix[2 * s + 1] += a[i + 1] * static_cast<float>(c->job.volume);
+      double ts = (i / 2) / 48000.0;
+      double g = c->job.volume;
+      if (fadeIn > 0 && ts < fadeIn) g *= ts / fadeIn;
+      if (fadeOut > 0 && ts > lenSec - fadeOut) g *= std::max(0.0, (lenSec - ts) / fadeOut);
+      mix[2 * s] += a[i] * static_cast<float>(g);
+      mix[2 * s + 1] += a[i + 1] * static_cast<float>(g);
     }
   }
   float peak = 0;
@@ -637,9 +753,31 @@ int cmdCompose(const std::string& jobPath) {
     double t = double(i) / fps;
     std::fill(canvas.begin(), canvas.end(), 0);
     for (size_t k = 3; k < canvas.size(); k += 4) canvas[k] = 255;
+    // Transition looks for this frame.
+    std::vector<Look> looks(clips.size());
+    for (size_t c = 0; c < clips.size(); c++) {
+      const ClipJob& j = clips[c]->job;
+      if (prevMain[c] < 0 || j.transition.empty() || j.transitionDur <= 0) continue;
+      double p = (t - j.start) / j.transitionDur;
+      if (p < 0 || p >= 1) continue;
+      Look& in = looks[c];
+      Look& out = looks[static_cast<size_t>(prevMain[c])];
+      if (j.transition == "dissolve") in.alpha = p;
+      else if (j.transition == "slide") in.dx = (1 - p) * W;
+      else if (j.transition == "wipe") in.wipe = p;
+      else if (j.transition == "zoom") {
+        in.alpha = p;
+        in.zoom = 1.25 - 0.25 * p;
+      } else if (j.transition == "black") {
+        if (p < 0.5) {
+          in.hidden = true;
+          out.bright = 1 - p * 2;
+        } else in.bright = p * 2 - 1;
+      }
+    }
     for (size_t c = 0; c < clips.size(); c++) {
       ClipReader& cr = *clips[c];
-      if (!cr.activeAt(t)) continue;
+      if (!cr.activeAt(t) || looks[c].hidden) continue;
       int sw = 0, sh = 0;
       const std::vector<uint8_t>* img = cr.frameAt(t, sw, sh);
       if (!img) continue;
@@ -647,7 +785,7 @@ int cmdCompose(const std::string& jobPath) {
       int w = static_cast<int>(std::lround(W * j.scale)), h = static_cast<int>(std::lround(H * j.scale));
       int x = j.scale < 1 ? static_cast<int>(std::lround(j.x * W - w / 2.0)) : 0;
       int y = j.scale < 1 ? static_cast<int>(std::lround(j.y * H - h / 2.0)) : 0;
-      blit[c].cover(*img, sw, sh, canvas.data(), W, H, x, y, w, h);
+      blit[c].cover(*img, sw, sh, canvas.data(), W, H, x, y, w, h, looks[c]);
     }
     check(av_frame_make_writable(vf.get()), "Video frame");
     const uint8_t* src[4] = {canvas.data(), nullptr, nullptr, nullptr};

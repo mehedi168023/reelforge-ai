@@ -80,6 +80,21 @@ export interface Clip {
   x: number;
   y: number;
   scale: number;
+  /** Playback speed: 2 plays twice as fast and takes half the time. */
+  speed: number;
+  /** How this clip enters from the main-track clip before it; the two overlap for `dur` seconds. */
+  transition: { type: TransitionType; dur: number } | null;
+}
+
+export type TransitionType = 'dissolve' | 'black' | 'slide' | 'wipe' | 'zoom';
+export const TRANSITIONS: TransitionType[] = ['dissolve', 'black', 'slide', 'wipe', 'zoom'];
+
+/** Where the film page's own clock is, for a stretch of the timeline: page time = src + (t - a) * k. */
+export interface MapSegment {
+  a: number;
+  b: number;
+  src: number;
+  k: number;
 }
 
 export interface ProjectConfig {
@@ -90,6 +105,8 @@ export interface ProjectConfig {
   footage: string | null;
   /** Edited video on tracks. Empty means `footage` plays whole from 0. */
   clips: Clip[];
+  /** The film page's clock across the timeline, when its captions follow a cut source file. */
+  map: MapSegment[] | null;
   audio: AudioClip[];
   grade: Grade | null;
   camera: CameraKey[];
@@ -121,13 +138,32 @@ function parseClips(list: unknown): Clip[] {
     .map((c) => {
       const inn = num(c.in, 0, 0, 36000);
       const out = c.out === undefined || c.out === null ? null : num(c.out, inn + 1, inn + 0.04, 36000);
-      return { file: String(c.file), track: Math.round(num(c.track, 0, 0, 7)), start: num(c.start, 0, 0, 1800), in: inn, out, volume: num(c.volume, 1, 0, 2), x: num(c.x, 0.5, 0, 1), y: num(c.y, 0.5, 0, 1), scale: num(c.scale, 1, 0.1, 1) };
+      const tr = c.transition as Record<string, unknown> | undefined;
+      const transition = tr && TRANSITIONS.includes(tr.type as TransitionType) ? { type: tr.type as TransitionType, dur: num(tr.dur, 0.5, 0.1, 3) } : null;
+      return { file: String(c.file), track: Math.round(num(c.track, 0, 0, 7)), start: num(c.start, 0, 0, 1800), in: inn, out, volume: num(c.volume, 1, 0, 2), x: num(c.x, 0.5, 0, 1), y: num(c.y, 0.5, 0, 1), scale: num(c.scale, 1, 0.1, 1), speed: num(c.speed, 1, 0.25, 4), transition };
     })
     .sort((a, b) => a.track - b.track || a.start - b.start);
 }
 
 /** Whether the clips need the native engine to flatten them, rather than one file playing whole from 0. */
-export const needsCompose = (c: ProjectConfig) => c.clips.length > 1 || c.clips.some((k) => k.start > 0 || k.in > 0 || k.track > 0 || k.scale < 1 || k.volume !== 1 || k.out !== null);
+export const needsCompose = (c: ProjectConfig) => c.clips.length > 1 || c.clips.some((k) => k.start > 0 || k.in > 0 || k.track > 0 || k.scale < 1 || k.volume !== 1 || k.out !== null || k.speed !== 1);
+
+/**
+ * With `captionSync`, the film page was written against one source file's own time (its captions follow the
+ * words). When that file is cut, trimmed or reordered on the main track, the page's clock follows the footage.
+ */
+export function pageMap(clips: Clip[], syncFile: string | null): MapSegment[] | null {
+  if (!syncFile) return null;
+  const main = clips.filter((c) => c.track === 0).sort((a, b) => a.start - b.start);
+  const out: MapSegment[] = [];
+  main.forEach((c, i) => {
+    if (c.file !== syncFile) return;
+    const len = c.out !== null ? (c.out - c.in) / c.speed : 1e6;
+    const next = main[i + 1];
+    out.push({ a: c.start, b: Math.min(c.start + len, next ? next.start : Infinity), src: c.in, k: c.speed });
+  });
+  return out;
+}
 
 function parseCamera(list: unknown): { camera: CameraKey[]; shakes: { t: number; px: number }[] } {
   const camera: CameraKey[] = [];
@@ -232,7 +268,8 @@ export async function loadConfig(projectId: string): Promise<ProjectConfig> {
   for (const name of new Set([...audio.map((a) => a.file), ...clips.map((c) => c.file), ...(footage ? [footage] : [])])) {
     if (!(await readMedia(projectId, name))) throw new Error(`${name} doesn't exist.`);
   }
-  return { width, height, fps, duration, footage, clips, audio, grade: parseGrade(o.grade), ...parseCamera(o.camera) };
+  const sync = o.captionSync && typeof o.captionSync.file === 'string' ? String(o.captionSync.file) : null;
+  return { width, height, fps, duration, footage, clips, map: pageMap(clips, sync), audio, grade: parseGrade(o.grade), ...parseCamera(o.camera) };
 }
 
 /**
@@ -272,8 +309,19 @@ const BRIDGE = `<script>(function(){
     for(var n=document.documentElement.firstChild;n;n=n.nextSibling)root.appendChild(n===document.body?copy(n):n.cloneNode(true));
     return new XMLSerializer().serializeToString(root);
   }
-  // The editor's live preview: the timeline plays in real time instead of being drawn frame by frame.
-  function live(d){try{if(d.play){window.__tl.timeScale(d.rate||1);window.__tl.play(d.t)}else window.__tl.pause(d.t)}catch(err){}}
+  // Timeline time to the page's own time. Outside the mapped stretches the AI's parts are hidden (-1).
+  function mapT(t){var m=window.__rfMap;if(!m)return t;for(var i=0;i<m.length;i++){var g=m[i];if(t>=g.a-1e-6&&t<g.b-1e-6)return g.src+(t-g.a)*g.k}return -1}
+  var gapCss=null;
+  // Shows moment t: the AI's timeline at the mapped time, the person's own captions (window.__tl2) at t itself.
+  function at(t){
+    var p=mapT(t);
+    window.__tl.seek(p<0?0:p,false);
+    if(window.__tl2)window.__tl2.seek(t,false);
+    if(!gapCss){gapCss=document.createElement('style');gapCss.textContent='.rf-gap body>*:not(#rf-user){visibility:hidden!important}';document.head.appendChild(gapCss)}
+    document.documentElement.classList.toggle('rf-gap',p<0);
+  }
+  // The editor's live preview sends the time on every tick; nothing is drawn to a picture.
+  function live(d){try{at(d.t)}catch(err){}}
   // The page's parts and when each is on screen, for the editor's timeline.
   function layers(){
     var W=innerWidth,H=innerHeight,groups=new Map();
@@ -289,7 +337,7 @@ const BRIDGE = `<script>(function(){
       var s=tw.startTime(),p=tw.parent;while(p&&p!==window.__tl){s+=p.startTime();p=p.parent}
       var e=s+tw.duration();
       (tw.targets()||[]).forEach(function(el){
-        if(!el||el.nodeType!==1||el===document.body||el===document.documentElement)return;
+        if(!el||el.nodeType!==1||el===document.body||el===document.documentElement||el.closest('#rf-user'))return;
         var h=host(el),g=groups.get(h);
         if(!g)groups.set(h,{label:name(h),start:s,end:e});else{g.start=Math.min(g.start,s);g.end=Math.max(g.end,e)}
       });
@@ -335,10 +383,11 @@ const BRIDGE = `<script>(function(){
   addEventListener('message',function(e){
     var d=e.data;if(e.source!==parent||!d)return;
     if(d.type==='live')return live(d);
+    if(d.type==='map'){window.__rfMap=d.map||null;return}
     if(d.type==='layers'){var l=[];try{l=layers()}catch(err){}send({type:'layers',id:d.id,layers:l,duration:window.__tl.duration()});return}
     if(d.type!=='seek')return;
     try{
-      window.__tl.seek(d.t,false);
+      at(d.t);
       // Nothing moved since the last frame, so the last picture still holds.
       var same=drawn&&watcher.takeRecords().length===0;
       send({type:'frame',id:d.id,same:same,xml:same?'':picture(),err:window.__rfError||null});
@@ -405,7 +454,7 @@ export async function buildPage(projectId: string, config: ProjectConfig): Promi
     }
     return inlined;
   });
-  const base = `<style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}</style>`;
+  const base = `<style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}</style><script>window.__rfMap=${JSON.stringify(config.map)}</script>`;
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (h) => h + base) : base + html;
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${BRIDGE}</body>`) : html + BRIDGE;
 }

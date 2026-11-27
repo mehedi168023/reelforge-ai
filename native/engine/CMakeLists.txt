@@ -13,7 +13,7 @@ endif()
 add_executable(rfengine src/main.cpp src/json.hpp)
 target_include_directories(rfengine PRIVATE "${FFMPEG_ROOT}/include")
 target_link_directories(rfengine PRIVATE "${FFMPEG_ROOT}/lib")
-target_link_libraries(rfengine PRIVATE avformat avcodec avutil swscale swresample)
+target_link_libraries(rfengine PRIVATE avfilter avformat avcodec avutil swscale swresample)
 if(MINGW)
   # One self-contained exe apart from the FFmpeg DLLs.
   target_link_options(rfengine PRIVATE -static -municode)
@@ -25,5 +25,5 @@ else()
 endif()
 
 # The FFmpeg DLLs sit next to the exe, so it runs from the build folder and from the app's resources.
-file(GLOB FFMPEG_DLLS "${FFMPEG_ROOT}/bin/avcodec*.dll" "${FFMPEG_ROOT}/bin/avformat*.dll" "${FFMPEG_ROOT}/bin/avutil*.dll" "${FFMPEG_ROOT}/bin/sw*.dll")
+file(GLOB FFMPEG_DLLS "${FFMPEG_ROOT}/bin/avcodec*.dll" "${FFMPEG_ROOT}/bin/avformat*.dll" "${FFMPEG_ROOT}/bin/avutil*.dll" "${FFMPEG_ROOT}/bin/avfilter*.dll" "${FFMPEG_ROOT}/bin/sw*.dll")
 add_custom_command(TARGET rfengine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${FFMPEG_DLLS} $<TARGET_FILE_DIR:rfengine>)

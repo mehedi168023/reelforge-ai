@@ -176,5 +176,5 @@ export async function addInputFiles(meta: ProjectMeta, files: File[], note?: Imp
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  await Promise.all([kvDel(`project:${id}`), kvDel(`events:${id}`), kvDel(`messages:${id}`), kvDel(`brief:${id}`), fileDeleteAll(id)]);
+  await Promise.all([kvDel(`project:${id}`), kvDel(`events:${id}`), kvDel(`messages:${id}`), kvDel(`brief:${id}`), fileDeleteAll(id), desktop?.historyDrop(id)]);
 }

@@ -1,6 +1,6 @@
 /* Desktop editor: video tracks, clips, text tools. */
 .tl-sep { width: 1px; height: 20px; margin: 0 6px; background: var(--line); }
-.tl-video-row.main { background: rgba(31, 228, 255, 0.03); }
+.tl-video-row.is-main { background: rgba(31, 228, 255, 0.03); }
 .tl-video-row .tl-head { display: flex; align-items: center; }
 .tl-clip { top: 5px; height: 48px; display: flex; border-radius: 7px; overflow: hidden; background: #1f3a52; border: 1px solid #2f5a7d; cursor: grab; touch-action: none; }
 .tl-clip:active { cursor: grabbing; }
@@ -40,3 +40,24 @@
 .ed-color.c-pink { background: #ec4899; }
 .ed-color.c-white { background: #fff; }
 .ed-text-add .btn.primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* ---------- transitions and speed ---------- */
+.tl-trans { top: 16px; width: 22px; height: 22px; margin-left: -11px; z-index: 3; display: grid; place-items: center; border-radius: 6px; background: #0d0d10e6; border: 1px solid var(--line); color: var(--muted); font-size: 13px; font-weight: 800; cursor: pointer; }
+.tl-trans:hover { color: var(--text); border-color: var(--accent); }
+.tl-trans.on { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+.tl-trans.sel { outline: 2px solid #fff; }
+.ed-trans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ed-presets button.on { border-color: var(--accent); color: var(--accent); }
+.tl-speed { color: var(--accent); }
+
+/* ---------- version history ---------- */
+.ed-history { display: flex; flex-direction: column; gap: 6px; }
+.ed-history h3 { margin: 0; font-size: 14px; }
+.ed-hrow { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 8px; border-left: 2px solid var(--line); margin-left: 4px; }
+.ed-hrow:hover { background: var(--panel2); }
+.ed-hrow.now { border-left-color: var(--accent); }
+.ed-hdot { flex: none; width: 8px; height: 8px; margin-left: -12px; border-radius: 50%; background: var(--line); }
+.ed-hrow.now .ed-hdot { background: var(--accent); }
+.ed-htext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ed-hrow .small-btn { padding: 4px 10px; font-size: 12px; }
+.tl-video-row.spare .tl-head { padding-top: 3px; padding-bottom: 3px; color: var(--faint); font-size: 11px; }

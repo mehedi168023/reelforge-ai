@@ -32,7 +32,7 @@ const safeJson = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c').repl
 
 function code(u: UserText): string {
   const T = safeJson(u.text);
-  const base = `t:${u.t},end:${u.end},y:H*${u.y}`;
+  const base = `t:${u.t},end:${u.end},y:H*${u.y},host:host`;
   const color = safeJson(u.color);
   switch (u.style) {
     case 'neon':
@@ -45,12 +45,14 @@ function code(u: UserText): string {
       return `RF.dashBox(tl,{${base},text:${T},color:${color}})`;
     default:
       // A plain caption: white with a soft shadow, no kit effect.
-      return `(function(){var d=document.createElement('div');d.textContent=${T};d.style.cssText='position:absolute;left:8%;right:8%;top:'+(H*${u.y})+'px;transform:translateY(-50%);text-align:center;color:#fff;font:800 '+Math.round(W*0.06)+'px "Anek Bangla","Segoe UI",sans-serif;text-shadow:0 3px 14px rgba(0,0,0,.7);opacity:0';document.body.appendChild(d);tl.to(d,{opacity:1,duration:.2},${u.t});tl.to(d,{opacity:0,duration:.15},${Math.max(u.t, u.end - 0.15)});})()`;
+      return `(function(){var d=document.createElement('div');d.textContent=${T};d.style.cssText='position:absolute;left:8%;right:8%;top:'+(H*${u.y})+'px;transform:translateY(-50%);text-align:center;color:#fff;font:800 '+Math.round(W*0.06)+'px "Anek Bangla","Segoe UI",sans-serif;text-shadow:0 3px 14px rgba(0,0,0,.7);opacity:0';host.appendChild(d);tl.to(d,{opacity:1,duration:.2},${u.t});tl.to(d,{opacity:0,duration:.15},${Math.max(u.t, u.end - 0.15)});})()`;
   }
 }
 
 function script(u: UserText): string {
-  return `<script>/*rf-text ${safeJson(u)}*/(function(){var tl=window.__tl,W=innerWidth,H=innerHeight;if(!tl||!window.RF)return;${code(u)};})();</script>\n`;
+  // The person's captions keep timeline time on their own timeline (window.__tl2) and layer (#rf-user), so they
+  // stay put when the footage under them is cut, while the AI's captions follow the footage.
+  return `<script>/*rf-text ${safeJson(u)}*/(function(){if(!window.RF||!window.gsap)return;var tl=window.__tl2||(window.__tl2=gsap.timeline({paused:true})),W=innerWidth,H=innerHeight;var host=document.getElementById('rf-user');if(!host){host=document.createElement('div');host.id='rf-user';host.className='rf-layer';document.body.appendChild(host)}${code(u)};})();</script>\n`;
 }
 
 export function userTexts(html: string): UserText[] {

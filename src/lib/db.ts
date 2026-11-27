@@ -30,13 +30,35 @@ function run<T>(store: 'kv' | 'files', mode: IDBTransactionMode, work: (s: IDBOb
   );
 }
 
-export const kvGet = <T>(key: string) => run<T | undefined>('kv', 'readonly', (s) => s.get(key));
-export const kvSet = (key: string, value: unknown) => run('kv', 'readwrite', (s) => s.put(value, key));
-export const kvDel = (key: string) => run('kv', 'readwrite', (s) => s.delete(key));
-
 const rangeFor = (prefix: string) => IDBKeyRange.bound(prefix, `${prefix}￿`);
 
-export const kvValues = <T>(prefix: string) => run<T[]>('kv', 'readonly', (s) => s.getAll(rangeFor(prefix)));
+/**
+ * On the desktop, settings, projects and conversations live in the SQLite project database. The first time,
+ * whatever this app kept in browser storage before is moved across.
+ */
+let migrated: Promise<void> | null = null;
+function ready(): Promise<void> {
+  return (migrated ??= (async () => {
+    if (!desktop || (await desktop.kvCount()) > 0) return;
+    const entries = await new Promise<[string, unknown][]>((resolve) => {
+      db()
+        .then((d) => {
+          const tx = d.transaction('kv', 'readonly');
+          const keys = tx.objectStore('kv').getAllKeys();
+          const values = tx.objectStore('kv').getAll();
+          tx.oncomplete = () => resolve(keys.result.map((k, i) => [String(k), values.result[i]]));
+          tx.onerror = () => resolve([]);
+        })
+        .catch(() => resolve([]));
+    });
+    if (entries.length) await desktop.kvImport(JSON.parse(JSON.stringify(entries)));
+  })());
+}
+
+export const kvGet = async <T>(key: string): Promise<T | undefined> => (desktop ? (await ready(), desktop.kvGet<T>(key)) : run<T | undefined>('kv', 'readonly', (s) => s.get(key)));
+export const kvSet = async (key: string, value: unknown): Promise<unknown> => (desktop ? (await ready(), desktop.kvSet(key, JSON.parse(JSON.stringify(value ?? null)))) : run('kv', 'readwrite', (s) => s.put(value, key)));
+export const kvDel = async (key: string): Promise<unknown> => (desktop ? (await ready(), desktop.kvDel(key)) : run('kv', 'readwrite', (s) => s.delete(key)));
+export const kvValues = async <T>(prefix: string): Promise<T[]> => (desktop ? (await ready(), desktop.kvValues<T>(prefix)) : run<T[]>('kv', 'readonly', (s) => s.getAll(rangeFor(prefix))));
 
 const idbPut = (projectId: string, path: string, blob: Blob) => run('files', 'readwrite', (s) => s.put(blob, `${projectId}/${path}`));
 const idbGet = (projectId: string, path: string) => run<Blob | undefined>('files', 'readonly', (s) => s.get(`${projectId}/${path}`));

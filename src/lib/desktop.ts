@@ -63,6 +63,16 @@ interface DesktopApi {
   /** Length in seconds of a media file. */
   probe(id: string, rel: string): Promise<{ duration: number; width: number; height: number; hasAudio: boolean }>;
   onEngineProgress(fn: (p: { id: string; fraction: number }) => void): () => void;
+  kvGet<T>(key: string): Promise<T | undefined>;
+  kvSet(key: string, value: unknown): Promise<void>;
+  kvDel(key: string): Promise<void>;
+  kvValues<T>(prefix: string): Promise<T[]>;
+  kvCount(): Promise<number>;
+  kvImport(entries: [string, unknown][]): Promise<void>;
+  historyAdd(id: string, label: string, projectJson: string | null, indexHtml: string | null): Promise<number | null>;
+  historyList(id: string): Promise<{ id: number; at: number; label: string }[]>;
+  historyGet(hid: number): Promise<{ project: string; projectJson: string | null; indexHtml: string | null } | null>;
+  historyDrop(id: string): Promise<void>;
   detectEngines(): Promise<EngineInfo[]>;
   setTools(tools: unknown[]): Promise<void>;
   onToolCall(fn: (c: ToolCall) => void): () => void;

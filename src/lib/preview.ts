@@ -1,7 +1,20 @@
 // The editor's live player. Each video clip plays in its own <video> on its track, the film page plays in its
 // sealed frame on top, and the grade, camera and sound clips follow the renderer's rules, so what plays here is
 // what exports.
-import { buildPage, cameraAt, loadConfig, readFile, readMedia, shakeAt, type Clip, type ProjectConfig } from './render';
+import { buildPage, cameraAt, loadConfig, readFile, readMedia, shakeAt, type Clip, type MapSegment, type ProjectConfig } from './render';
+
+/** Where a stretch of the page's own time shows on the timeline (more than once if footage repeats, never if cut). */
+export function spansOf(map: MapSegment[] | null, start: number, end: number): [number, number][] {
+  if (!map) return [[start, end]];
+  const out: [number, number][] = [];
+  for (const g of map) {
+    const srcEnd = g.src + (g.b - g.a) * g.k;
+    const s = Math.max(start, g.src);
+    const e = Math.min(end, srcEnd);
+    if (e > s + 1e-3) out.push([g.a + (s - g.src) / g.k, g.a + (e - g.src) / g.k]);
+  }
+  return out;
+}
 
 export interface Layer {
   label: string;
@@ -24,7 +37,7 @@ interface ClipView {
 /** Clips as the player uses them: the main file plays whole from 0 when there are none. */
 export function clipsOf(c: ProjectConfig): Clip[] {
   if (c.clips.length) return c.clips;
-  return c.footage ? [{ file: c.footage, track: 0, start: 0, in: 0, out: null, volume: 1, x: 0.5, y: 0.5, scale: 1 }] : [];
+  return c.footage ? [{ file: c.footage, track: 0, start: 0, in: 0, out: null, volume: 1, x: 0.5, y: 0.5, scale: 1, speed: 1, transition: null }] : [];
 }
 
 export class Preview {
@@ -143,6 +156,7 @@ export class Preview {
       return;
     }
     this.error = null;
+    this.frame.contentWindow?.postMessage({ type: 'map', map: this.config.map }, '*');
     await this.loadClips();
     this.applyLook();
     if (this.playing) this.play();
@@ -218,7 +232,7 @@ export class Preview {
   clipLength(clip: Clip): number {
     const v = this.views.find((x) => x.clip === clip);
     const total = v?.length || this.config?.duration || 0;
-    return Math.max(0.04, (clip.out ?? total) - clip.in);
+    return Math.max(0.04, ((clip.out ?? total) - clip.in) / clip.speed);
   }
 
   /** The source length of a file, if one of the clips has loaded it. */
@@ -295,13 +309,46 @@ export class Preview {
     this.videos.style.transform = `translate(${-sx * z}px, ${-sy * z}px) scale(${z})`;
   }
 
+  /** A main-track clip entering with a transition: how it and the clip under it look at time t. */
+  private transitionLook(v: ClipView, t: number) {
+    const tr = v.clip.transition;
+    const el = v.el;
+    el.style.opacity = '';
+    el.style.clipPath = '';
+    el.style.translate = '';
+    el.style.scale = '';
+    el.style.filter = '';
+    if (!tr || v.clip.track !== 0) return;
+    const p = (t - v.clip.start) / tr.dur;
+    if (p < 0 || p >= 1) return;
+    const W = this.config!.width;
+    if (tr.type === 'dissolve') el.style.opacity = String(p);
+    else if (tr.type === 'slide') el.style.translate = `${(1 - p) * W}px 0`;
+    else if (tr.type === 'wipe') el.style.clipPath = `inset(0 ${(1 - p) * 100}% 0 0)`;
+    else if (tr.type === 'zoom') {
+      el.style.opacity = String(p);
+      el.style.scale = String(1.25 - 0.25 * p);
+    } else if (tr.type === 'black') {
+      // Down to black on the outgoing clip, then up from black on this one.
+      if (p < 0.5) {
+        el.style.opacity = '0';
+        const under = this.views.find((o) => o !== v && o.clip.track === 0 && t >= o.clip.start && t < o.clip.start + this.clipLength(o.clip));
+        if (under) under.el.style.filter = `brightness(${1 - p * 2})`;
+      } else el.style.filter = `brightness(${p * 2 - 1})`;
+    }
+  }
+
   /** Shows the clips under the playhead at their own source time; plays or pauses them with the player. */
-  private syncClips(t: number, hard: boolean) {
+  private syncClips(time: number, hard: boolean) {
+    // At the very end the last frame stays up, instead of the black after it.
+    const end = this.config?.duration ?? 0;
+    const t = end > 0 && time >= end - 1e-3 ? end - 0.02 : time;
     for (const v of this.views) {
       const len = this.clipLength(v.clip);
       const on = t >= v.clip.start - 1e-3 && t < v.clip.start + len;
       v.el.style.visibility = on ? 'visible' : 'hidden';
-      const src = v.clip.in + (t - v.clip.start);
+      v.el.playbackRate = v.clip.speed;
+      const src = v.clip.in + (t - v.clip.start) * v.clip.speed;
       if (!on) {
         if (!v.el.paused) v.el.pause();
         continue;
@@ -310,6 +357,7 @@ export class Preview {
       if (this.playing && v.el.paused) void v.el.play().catch(() => undefined);
       if (!this.playing && !v.el.paused) v.el.pause();
     }
+    for (const v of this.views) this.transitionLook(v, t);
   }
 
   private async buffer(file: string): Promise<AudioBuffer | null> {
@@ -383,7 +431,6 @@ export class Preview {
     this.live(true, this.time);
     void this.startSounds();
     cancelAnimationFrame(this.raf);
-    let lastSync = performance.now();
     const tick = () => {
       if (!this.playing) return;
       const t = this.startT + (performance.now() - this.startPerf) / 1000;
@@ -395,11 +442,8 @@ export class Preview {
       this.time = t;
       this.applyCamera(t);
       this.syncClips(t, false);
-      const now = performance.now();
-      if (now - lastSync > 1000) {
-        lastSync = now;
-        this.live(true, t);
-      }
+      // The page follows every tick, so a cut in the footage cuts its captions too.
+      this.live(true, t);
       this.changed();
       this.raf = requestAnimationFrame(tick);
     };

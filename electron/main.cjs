@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const media = require('./media.cjs');
 const engine = require('./engine.cjs');
+const store = require('./store.cjs');
 const engines = require('./engines.cjs');
 const { startMcpServer } = require('./mcp-server.cjs');
 
@@ -255,6 +256,18 @@ function ipc() {
   ipcMain.handle('engine:waveform', (_e, id, rel, points) => engine.waveform(projectPath(id, rel), points));
   ipcMain.handle('engine:probe', (_e, id, rel) => engine.probe(projectPath(id, rel)));
 
+  // Project database (SQLite).
+  ipcMain.handle('kv:get', (_e, key) => store.kv.get(key));
+  ipcMain.handle('kv:set', (_e, key, value) => store.kv.set(key, value));
+  ipcMain.handle('kv:del', (_e, key) => store.kv.del(key));
+  ipcMain.handle('kv:values', (_e, prefix) => store.kv.values(prefix));
+  ipcMain.handle('kv:count', () => store.kv.count());
+  ipcMain.handle('kv:import', (_e, entries) => store.kv.importAll(entries));
+  ipcMain.handle('history:add', (_e, id, label, projectJson, indexHtml) => store.history.add(id, label, projectJson, indexHtml));
+  ipcMain.handle('history:list', (_e, id) => store.history.list(id));
+  ipcMain.handle('history:get', (_e, hid) => store.history.get(hid));
+  ipcMain.handle('history:drop', (_e, id) => store.history.drop(id));
+
   ipcMain.handle('engines:detect', () => engines.detect());
 
   ipcMain.handle('mcp:setTools', (_e, tools) => {
@@ -315,6 +328,7 @@ function ipc() {
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   ROOT = process.env.RF_PROJECTS || path.join(app.getPath('videos'), 'ReelForge');
+  store.open(app.getPath('userData'));
   await fsp.mkdir(ROOT, { recursive: true });
   // Electron's own Node runs the MCP bridge; make sure that path exists when packaged.
   registerProtocol();

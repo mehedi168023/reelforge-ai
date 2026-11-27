@@ -29,7 +29,8 @@ How it fits together:
 | MCP | `electron/mcp-server.cjs`, `electron/mcp-bridge.cjs` | Localhost MCP endpoint; the bridge is the stdio server each CLI starts |
 | Media | `electron/media.cjs` | FFprobe check, GPU H.264 conversion, sound extraction |
 | Page side | `src/lib/desktop.ts` | The preload API, used by storage, the agent and the screens |
-| Native engine | `native/engine` (C++20, CMake) | `rfengine.exe`: joins clips on tracks (trim, split, layers, picture-in-picture, sound) with D3D11VA GPU decode and NVENC/Quick Sync/AMF encode; probe; waveforms |
+| Project database | `electron/store.cjs` | SQLite (`reelforge.db` in the app's data folder): settings, projects, conversations and every project's version history |
+| Native engine | `native/engine` (C++20, CMake) | `rfengine.exe`: joins clips on tracks (trim, split, layers, picture-in-picture, speed with pitch kept, transitions, crossfaded sound) with D3D11VA GPU decode and NVENC/Quick Sync/AMF encode; probe; waveforms |
 | Editor | `src/screens/Editor.tsx`, `src/lib/preview.ts`, `src/lib/pageEdit.ts` | Live player, multi-track timeline, caption editing |
 
 Antigravity keeps one global MCP list, so the first Antigravity job adds a `reelforge` entry to it (`agy mcp list` shows it). It points at the running app and does nothing while ReelForge is closed.
